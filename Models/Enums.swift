@@ -1,6 +1,6 @@
 import Foundation
 
-enum MatchStatus: String, Codable {
+enum MatchStatus: String, Codable, CaseIterable {
     case notStarted = "未开始"
     case inProgress = "进行中"
     case finished = "已结束"
