@@ -1,10 +1,18 @@
 import SwiftUI
+import SwiftData
 
 struct MatchRecordView: View {
-    var redTeam: [Player]
-    var blueTeam: [Player]
+    @Environment(\.modelContext) private var modelContext
+    @Bindable var match: Match
+    @State private var showingEventSelection = false
     
-    @State private var showingEventSelection = false // 状态变量
+    var redTeamPlayers: [Player] {
+        match.playerStats.filter { $0.isHomeTeam }.map { $0.player! }
+    }
+    
+    var blueTeamPlayers: [Player] {
+        match.playerStats.filter { !$0.isHomeTeam }.map { $0.player! }
+    }
     
     var body: some View {
         NavigationView {
@@ -15,7 +23,7 @@ struct MatchRecordView: View {
                         VStack {
                             Text("红队")
                                 .font(.headline)
-                            Text("0") // 红队得分
+                            Text("\(match.homeScore)") // 红队得分
                                 .font(.largeTitle)
                                 .foregroundColor(.red)
                         }
@@ -24,7 +32,7 @@ struct MatchRecordView: View {
                         VStack {
                             Text("比赛时间")
                                 .font(.headline)
-                            Text("60:22") // 示例时间
+                            Text("60:22")
                                 .font(.title)
                         }
                         .frame(maxWidth: .infinity)
@@ -32,7 +40,7 @@ struct MatchRecordView: View {
                         VStack {
                             Text("蓝队")
                                 .font(.headline)
-                            Text("0") // 蓝队得分
+                            Text("\(match.awayScore)") // 蓝队得分
                                 .font(.largeTitle)
                                 .foregroundColor(.blue)
                         }
@@ -48,9 +56,9 @@ struct MatchRecordView: View {
                             showingEventSelection = true
                         }) {
                             HStack {
-                                Image(systemName: "circle.fill") // 红队图标
+                                Image(systemName: "circle.fill")
                                     .foregroundColor(.red)
-                                Text("红队: \(redTeam.count)人")
+                                Text("红队: \(redTeamPlayers.count)人")
                             }
                         }
                         Spacer()
@@ -58,21 +66,21 @@ struct MatchRecordView: View {
                             showingEventSelection = true
                         }) {
                             HStack {
-                                Image(systemName: "circle.fill") // 蓝队图标
+                                Image(systemName: "circle.fill")
                                     .foregroundColor(.blue)
-                                Text("蓝队: \(blueTeam.count)人")
+                                Text("蓝队: \(blueTeamPlayers.count)人")
                             }
                         }
                     }
                     .padding()
                 }
-                .frame(height: UIScreen.main.bounds.height * 0.2) // 占屏幕总高度的2/5
+                .frame(height: UIScreen.main.bounds.height * 0.2)
                 
                 // 时间线区域
                 ScrollView {
                     VStack {
-                        ForEach(0..<20) { index in
-                            Text("事件 \(index + 1)")
+                        ForEach(match.events.sorted(by: { $0.timestamp > $1.timestamp })) { event in
+                            Text("\(event.eventType.rawValue)")
                                 .padding()
                                 .background(Color.blue.opacity(0.1))
                                 .cornerRadius(8)
@@ -80,21 +88,34 @@ struct MatchRecordView: View {
                     }
                     .padding()
                 }
-                .frame(maxHeight: .infinity) // 占屏幕总高度的3/5
+                .frame(maxHeight: .infinity)
             }
             .navigationTitle("比赛记录")
             .navigationBarItems(leading: Button("返回") {
                 // 返回到 MatchesView
             }, trailing: Button("结束比赛") {
-                // 结束比赛并返回到 MatchesView
+                match.status = .finished
+                // 返回到 MatchesView
             })
             .fullScreenCover(isPresented: $showingEventSelection) {
-                EventSelectionView() // 跳转到比赛事件选择页面
+                EventSelectionView(match: match)
             }
         }
     }
 }
 
 #Preview {
-    MatchRecordView(redTeam: [Player(name: "球员1", position: .forward)], blueTeam: [Player(name: "球员2", position: .midfielder)])
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: Match.self, configurations: config)
+    
+    let newMatch = Match(
+        id: UUID(),
+        status: .notStarted,
+        homeTeamName: "红队",
+        awayTeamName: "蓝队",
+        matchDate: Date(),
+        duration: nil
+    )
+    return MatchRecordView(match: newMatch)
+        .modelContainer(container)
 } 

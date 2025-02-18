@@ -6,6 +6,7 @@ final class PlayerMatchStats {
     var id: UUID
     @Relationship var player: Player?
     @Relationship var match: Match?
+    var isHomeTeam: Bool
     
     var goals: Int
     var assists: Int
@@ -20,6 +21,7 @@ final class PlayerMatchStats {
         self.id = id
         self.player = player
         self.match = match
+        self.isHomeTeam = false // 默认值
         self.goals = 0
         self.assists = 0
         self.saves = 0

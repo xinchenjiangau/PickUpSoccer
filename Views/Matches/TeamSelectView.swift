@@ -1,11 +1,14 @@
 import SwiftUI
+import SwiftData
 
 struct TeamSelectView: View {
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.presentationMode) var presentationMode
     @State var selectedPlayers: [Player]
     @State private var playerColors: [UUID: Color] = [:] // 存储每个球员的颜色
     @State private var firstPlayerSelected: Bool = false // 记录是否已选择第一个球员
     @State private var showingMatchRecord = false // 状态变量
+    @State private var currentMatch: Match? // 存储当前创建的比赛
     
     var redTeam: [Player] {
         selectedPlayers.filter { playerColors[$0.id] == .red }
@@ -33,14 +36,59 @@ struct TeamSelectView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("开始比赛") {
-                        showingMatchRecord = true
+                        createAndStartMatch()
                     }
                 }
             }
             .fullScreenCover(isPresented: $showingMatchRecord) {
-                MatchRecordView(redTeam: redTeam, blueTeam: blueTeam)
+                if let match = currentMatch {
+                    MatchRecordView(match: match)
+                }
             }
         }
+    }
+    
+    private func createAndStartMatch() {
+        // 创建新的比赛
+        let newMatch = Match(
+            id: UUID(),
+            status: .notStarted,
+            homeTeamName: "红队",
+            awayTeamName: "蓝队",
+            matchDate: Date(),
+            location: nil,
+            weather: nil,
+            referee: nil,
+            duration: nil
+        )
+        
+        // 初始化比分
+        newMatch.homeScore = 0
+        newMatch.awayScore = 0
+        
+        // 初始化空数组
+        newMatch.events = []
+        newMatch.playerStats = []
+        
+        // 为每个球员创建比赛统计
+        for player in redTeam {
+            let stats = PlayerMatchStats(player: player, match: newMatch)
+            stats.isHomeTeam = true  // 在创建后设置 isHomeTeam
+            newMatch.playerStats.append(stats)
+        }
+        
+        for player in blueTeam {
+            let stats = PlayerMatchStats(player: player, match: newMatch)
+            stats.isHomeTeam = false  // 在创建后设置 isHomeTeam
+            newMatch.playerStats.append(stats)
+        }
+        
+        // 保存到数据库
+        modelContext.insert(newMatch)
+        
+        // 保存当前比赛并显示比赛记录页面
+        currentMatch = newMatch
+        showingMatchRecord = true
     }
     
     private func togglePlayerColor(_ player: Player) {
