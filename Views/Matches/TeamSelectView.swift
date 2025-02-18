@@ -3,7 +3,7 @@ import SwiftData
 
 struct TeamSelectView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) private var dismiss
     @State var selectedPlayers: [Player]
     @State private var playerColors: [UUID: Color] = [:] // 存储每个球员的颜色
     @State private var firstPlayerSelected: Bool = false // 记录是否已选择第一个球员
@@ -19,47 +19,45 @@ struct TeamSelectView: View {
     }
     
     var body: some View {
-        NavigationView {
-            List {
-                ForEach(selectedPlayers, id: \.id) { player in
-                    Button(action: {
-                        togglePlayerColor(player)
-                    }) {
-                        HStack {
-                            Text(player.name)
-                                .foregroundColor(playerColors[player.id] ?? .gray) // 默认灰色
-                        }
+        List {
+            ForEach(selectedPlayers, id: \.id) { player in
+                Button(action: {
+                    togglePlayerColor(player)
+                }) {
+                    HStack {
+                        Text(player.name)
+                            .foregroundColor(playerColors[player.id] ?? .gray) // 默认灰色
                     }
                 }
             }
-            .navigationTitle("选择球队")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("开始比赛") {
-                        createAndStartMatch()
-                    }
+        }
+        .navigationTitle("选择球队")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("开始比赛") {
+                    createAndStartMatch()
                 }
             }
-            .fullScreenCover(isPresented: $showingMatchRecord) {
-                if let match = currentMatch {
-                    MatchRecordView(match: match)
-                }
+        }
+        .onChange(of: showingMatchRecord) { newValue in
+            if !newValue {
+                dismiss() // 当 MatchRecordView 关闭时，返回到 MatchesView
+            }
+        }
+        .fullScreenCover(isPresented: $showingMatchRecord) {
+            if let match = currentMatch {
+                MatchRecordView(match: match)
             }
         }
     }
     
     private func createAndStartMatch() {
-        // 创建新的比赛
+        // 创建新的比赛，只传入必要参数
         let newMatch = Match(
             id: UUID(),
             status: .notStarted,
             homeTeamName: "红队",
-            awayTeamName: "蓝队",
-            matchDate: Date(),
-            location: nil,
-            weather: nil,
-            referee: nil,
-            duration: nil
+            awayTeamName: "蓝队"
         )
         
         // 初始化比分
@@ -73,7 +71,7 @@ struct TeamSelectView: View {
         // 为每个球员创建比赛统计
         for player in redTeam {
             let stats = PlayerMatchStats(player: player, match: newMatch)
-            stats.isHomeTeam = true  // 在创建后设置 isHomeTeam
+            stats.isHomeTeam = true
             newMatch.playerStats.append(stats)
         }
         

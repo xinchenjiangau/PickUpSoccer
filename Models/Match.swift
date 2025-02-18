@@ -11,7 +11,7 @@ final class Match {
     var location: String?
     var weather: String?
     var referee: String?
-    var duration: Int? // 修改为可选类型
+    var duration: Int?
     var homeScore: Int
     var awayScore: Int
     
@@ -23,22 +23,17 @@ final class Match {
         id: UUID = UUID(),
         status: MatchStatus = .notStarted,
         homeTeamName: String,
-        awayTeamName: String,
-        matchDate: Date,
-        location: String? = nil,
-        weather: String? = nil,
-        referee: String? = nil,
-        duration: Int? = nil
+        awayTeamName: String
     ) {
         self.id = id
         self.status = status
         self.homeTeamName = homeTeamName
         self.awayTeamName = awayTeamName
-        self.matchDate = matchDate
-        self.location = location
-        self.weather = weather
-        self.referee = referee
-        self.duration = duration
+        self.matchDate = Date()
+        self.location = nil
+        self.weather = nil
+        self.referee = nil
+        self.duration = nil
         self.homeScore = 0
         self.awayScore = 0
         self.events = []

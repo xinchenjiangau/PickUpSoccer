@@ -28,9 +28,7 @@ struct EventSelectionView: View {
         id: UUID(),
         status: .notStarted,
         homeTeamName: "红队",
-        awayTeamName: "蓝队",
-        matchDate: Date(),
-        duration: nil
+        awayTeamName: "蓝队"
     )
     return EventSelectionView(match: newMatch)
         .modelContainer(container)
