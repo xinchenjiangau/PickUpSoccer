@@ -15,6 +15,19 @@ struct EventSelectionView: View {
         match.playerStats.filter { $0.isHomeTeam == isHomeTeam }.map { $0.player! }
     }
     
+    // 添加计算属性用于调试
+    var availableAssistPlayers: [Player] {
+        let filtered = selectedTeamPlayers.filter { player in
+            if let scorer = currentScorer {
+                print("比较ID: \(player.id) vs \(scorer.id)") // 调试输出
+                return player.id != scorer.id
+            }
+            return true
+        }
+        print("可选助攻球员数量: \(filtered.count)") // 调试输出
+        return filtered
+    }
+    
     var body: some View {
         TabView(selection: $selectedTab) {
             // 进球选择页面
@@ -44,7 +57,7 @@ struct EventSelectionView: View {
                     .font(.headline)
                     .padding()
                 
-                List(selectedTeamPlayers.filter { $0.position == .goalkeeper }) { player in
+                List(selectedTeamPlayers) { player in
                     Button(action: {
                         recordSave(player)
                     }) {
@@ -66,9 +79,10 @@ struct EventSelectionView: View {
         })
         .sheet(isPresented: $showingAssistSelection) {
             AssistSelectionView(
-                players: selectedTeamPlayers,
+                players: availableAssistPlayers,
                 onAssistSelected: { assistPlayer in
                     if let scorer = currentScorer {
+                        print("选择助攻球员：\(assistPlayer.name)，进球球员：\(scorer.name)") // 调试输出
                         recordGoal(scorer, assistant: assistPlayer)
                     }
                 },
@@ -79,14 +93,21 @@ struct EventSelectionView: View {
                 }
             )
         }
+        .onChange(of: currentScorer) { newValue in
+            print("currentScorer 更新为: \(newValue?.name ?? "nil")") // 调试输出
+        }
     }
     
     private func handleGoalScorer(_ player: Player) {
+        print("开始处理进球球员：\(player.name)") // 调试输出
+        print("进球球员ID：\(player.id)") // 调试输出
         currentScorer = player
         showingAssistSelection = true
     }
     
     private func recordGoal(_ scorer: Player, assistant: Player?) {
+        // 调试：打印进球球员信息
+        print("记录进球：进球球员 - \(scorer.name)")    
         let event = MatchEvent(
             eventType: .goal,
             timestamp: Date(),
@@ -112,7 +133,16 @@ struct EventSelectionView: View {
         }
         
         match.events.append(event)
-        try? modelContext.save()
+
+        // 调试：打印事件详情，确认 scorer 是否存储正确
+        print("事件创建完成，进球球员: \(event.scorer?.name ?? "未知")")
+
+        do {
+            try modelContext.save()
+        } catch {
+            print("保存数据失败: \(error.localizedDescription)")
+        }
+
         presentationMode.wrappedValue.dismiss()
     }
     
@@ -131,7 +161,12 @@ struct EventSelectionView: View {
         }
         
         match.events.append(event)
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            print("保存数据失败: \(error.localizedDescription)")
+        }
+
         presentationMode.wrappedValue.dismiss()
     }
 }
@@ -153,13 +188,15 @@ struct AssistSelectionView: View {
                     }
                 }
                 
-                Section("选择助攻球员") {
-                    ForEach(players) { player in
-                        Button(action: {
-                            onAssistSelected(player)
-                            presentationMode.wrappedValue.dismiss()
-                        }) {
-                            Text(player.name)
+                if !players.isEmpty {
+                    Section("选择助攻球员") {
+                        ForEach(players) { player in
+                            Button(action: {
+                                onAssistSelected(player)
+                                presentationMode.wrappedValue.dismiss()
+                            }) {
+                                Text(player.name)
+                            }
                         }
                     }
                 }
