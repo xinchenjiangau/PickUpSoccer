@@ -55,7 +55,7 @@ struct TeamSelectView: View {
         // 创建新的比赛，只传入必要参数
         let newMatch = Match(
             id: UUID(),
-            status: .notStarted,
+            status: .inProgress,  // 创建时直接设置为进行中
             homeTeamName: "红队",
             awayTeamName: "蓝队"
         )
@@ -77,7 +77,7 @@ struct TeamSelectView: View {
         
         for player in blueTeam {
             let stats = PlayerMatchStats(player: player, match: newMatch)
-            stats.isHomeTeam = false  // 在创建后设置 isHomeTeam
+            stats.isHomeTeam = false
             newMatch.playerStats.append(stats)
         }
         

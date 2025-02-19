@@ -7,7 +7,7 @@ struct MatchRecordView: View {
     @Bindable var match: Match
     @State private var showingEventSelection = false
     @State private var selectedTeamIsHome = true // 用于标识选中的是主队还是客队
-    @State private var shouldDismissToRoot = false // 用于控制返回到根视图
+    @State private var shouldNavigateToMatches = false  // 用于控制返回到 MatchesView
     
     var redTeamPlayers: [Player] {
         match.playerStats.filter { $0.isHomeTeam }.map { $0.player! }
@@ -132,6 +132,8 @@ struct MatchRecordView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("返回") {
+                        // 直接返回到 MatchesView，不改变比赛状态
+                        shouldNavigateToMatches = true
                         dismiss()
                     }
                 }
@@ -141,6 +143,9 @@ struct MatchRecordView: View {
                     }
                 }
             }
+            .navigationDestination(isPresented: $shouldNavigateToMatches) {
+                MatchesView()
+            }
         }
         .sheet(isPresented: $showingEventSelection) {
             EventSelectionView(match: match, isHomeTeam: selectedTeamIsHome)
@@ -148,14 +153,17 @@ struct MatchRecordView: View {
     }
     
     private func endMatch() {
-        // 更新比赛状态
+        // 更新比赛状态为已结束
         match.status = .finished
+        
+        // 计算并保存比赛时长
         match.duration = Int(Date().timeIntervalSince(match.matchDate) / 60)
         
         // 保存更改
         try? modelContext.save()
         
         // 返回到 MatchesView
+        shouldNavigateToMatches = true
         dismiss()
     }
 }
