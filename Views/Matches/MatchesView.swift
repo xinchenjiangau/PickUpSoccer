@@ -6,17 +6,38 @@ struct MatchesView: View {
     @Query(sort: \Match.matchDate, order: .reverse) private var matches: [Match]
     @State private var showingParticipationSelect = false // 状态变量
     
+    // 按状态分组的比赛
+    var matchesByStatus: [(status: MatchStatus, matches: [Match])] {
+        let grouped = Dictionary(grouping: matches) { $0.status }
+        return MatchStatus.allCases
+            .map { status in
+                (status: status, matches: grouped[status] ?? [])
+            }
+            .filter { !$0.matches.isEmpty } // 只显示有比赛的状态
+    }
+    
     var body: some View {
         NavigationView {
             List {
-                ForEach(matches) { match in
-                    NavigationLink {
-                        MatchRecordView(match: match)
-                    } label: {
-                        MatchRowView(match: match)
+                ForEach(matchesByStatus, id: \.status) { section in
+                    Section(header: Text(section.status.rawValue)) {
+                        ForEach(section.matches) { match in
+                            NavigationLink {
+                                MatchRecordView(match: match)
+                            } label: {
+                                MatchRowView(match: match)
+                            }
+                        }
+                        .onDelete { indexSet in
+                            // 获取当前分组中的比赛
+                            let matchesToDelete = indexSet.map { section.matches[$0] }
+                            for match in matchesToDelete {
+                                modelContext.delete(match)
+                            }
+                            try? modelContext.save()
+                        }
                     }
                 }
-                .onDelete(perform: deleteMatches)
             }
             .navigationTitle("比赛记录")
             .toolbar {
@@ -32,16 +53,6 @@ struct MatchesView: View {
                 ParticipationSelectView()
             }
         }
-    }
-    
-    private func deleteMatches(at offsets: IndexSet) {
-        for index in offsets {
-            let match = matches[index]
-            // 由于设置了 cascade 删除规则，只需要删除 Match 即可
-            modelContext.delete(match)
-        }
-        // 保存更改
-        try? modelContext.save()
     }
 }
 

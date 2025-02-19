@@ -18,6 +18,23 @@ struct TeamSelectView: View {
         selectedPlayers.filter { playerColors[$0.id] == .blue }
     }
     
+    private func randomizeTeams() {
+        // 清空现有分配
+        playerColors.removeAll()
+        
+        // 随机打乱球员顺序
+        let shuffledPlayers = selectedPlayers.shuffled()
+        
+        // 计算每队应有人数
+        let totalPlayers = selectedPlayers.count
+        let redTeamSize = totalPlayers / 2 + (totalPlayers % 2) // 如果是奇数，红队多一人
+        
+        // 分配球员
+        for (index, player) in shuffledPlayers.enumerated() {
+            playerColors[player.id] = index < redTeamSize ? .red : .blue
+        }
+    }
+    
     var body: some View {
         List {
             ForEach(selectedPlayers, id: \.id) { player in
@@ -33,7 +50,12 @@ struct TeamSelectView: View {
         }
         .navigationTitle("选择球队")
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                // 添加随机分队按钮
+                Button(action: randomizeTeams) {
+                    Image(systemName: "shuffle.circle")
+                }
+                
                 Button("开始比赛") {
                     createAndStartMatch()
                 }
@@ -107,6 +129,21 @@ struct TeamSelectView: View {
                 playerColors[player.id] = .red // 切换为红色
             }
         }
+    }
+    
+    // 添加队伍人数显示
+    var teamCountsView: some View {
+        HStack {
+            Text("红队: \(redTeam.count)人")
+                .foregroundColor(.red)
+            Spacer()
+            Text("蓝队: \(blueTeam.count)人")
+                .foregroundColor(.blue)
+        }
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(8)
+        .padding(.horizontal)
     }
 }
 

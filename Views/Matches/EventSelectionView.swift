@@ -29,50 +29,65 @@ struct EventSelectionView: View {
     }
     
     var body: some View {
-        TabView(selection: $selectedTab) {
-            // 进球选择页面
-            VStack {
-                Text("选择进球球员")
-                    .font(.headline)
-                    .padding()
-                
-                List(selectedTeamPlayers) { player in
-                    Button(action: {
-                        handleGoalScorer(player)
-                    }) {
-                        HStack {
-                            Text(player.name)
-                            Spacer()
-                            Text("选择")
-                                .foregroundColor(.blue)
-                        }
-                    }
-                }
+        VStack {
+            // 添加标题和滑动提示
+            HStack {
+                Text(selectedTab == 0 ? "进球" : "扑救")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                Image(systemName: "arrow.left.and.right.circle")
+                    .foregroundColor(.blue)
+                Text("左右滑动切换")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
             }
-            .tag(0)
+            .padding(.top)
             
-            // 扑救选择页面
-            VStack {
-                Text("选择扑救球员")
-                    .font(.headline)
-                    .padding()
-                
-                List(selectedTeamPlayers) { player in
-                    Button(action: {
-                        recordSave(player)
-                    }) {
-                        HStack {
-                            Text(player.name)
-                            Spacer()
-                            Text("选择")
-                                .foregroundColor(.blue)
+            TabView(selection: $selectedTab) {
+                // 进球选择页面
+                VStack {
+                    Text("选择进球球员")
+                        .font(.headline)
+                        .padding()
+                    
+                    List(selectedTeamPlayers) { player in
+                        Button(action: {
+                            handleGoalScorer(player)
+                        }) {
+                            HStack {
+                                Text(player.name)
+                                Spacer()
+                                // Text("选择")
+                                //     .foregroundColor(.blue)
+                            }
                         }
                     }
                 }
+                .tag(0)
+                
+                // 扑救选择页面
+                VStack {
+                    Text("选择扑救球员")
+                        .font(.headline)
+                        .padding()
+                    
+                    List(selectedTeamPlayers) { player in
+                        Button(action: {
+                            recordSave(player)
+                        }) {
+                            HStack {
+                                Text(player.name)
+                                Spacer()
+                                // Text("选择")
+                                //     .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                }
+                .tag(1)
             }
-            .tag(1)
+            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
         }
-        .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
         .navigationTitle("\(isHomeTeam ? "红队" : "蓝队")事件")
         .navigationBarItems(trailing: Button("完成") {
             presentationMode.wrappedValue.dismiss()
