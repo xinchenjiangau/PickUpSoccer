@@ -101,31 +101,9 @@ struct MatchRecordView: View {
                 .background(Color.white)
                 .shadow(radius: 2)
                 
-                // 时间线区域
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 20) {
-                        let sortedEvents = match.events.sorted(by: { $0.timestamp > $1.timestamp })
-                        ForEach(Array(sortedEvents.enumerated()), id: \.element.id) { index, event in
-                            TimelineEventView(
-                                event: event,
-                                isLastEvent: index == sortedEvents.count - 1
-                            )
-                        }
-                        if match.events.isEmpty {
-                            VStack(spacing: 16) {
-                                Image(systemName: "soccerball")
-                                    .font(.largeTitle)
-                                    .foregroundColor(.gray)
-                                Text("暂无比赛事件")
-                                    .foregroundColor(.gray)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding()
-                        }
-                    }
-                    .padding(.vertical)
-                }
-                .frame(maxHeight: .infinity)
+                // 使用新的 TimelineView
+                TimelineView(match: match)
+                    .frame(maxHeight: .infinity)
             }
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)

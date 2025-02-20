@@ -44,37 +44,71 @@ struct LeaderboardView: View {
             .sorted { $0.saves > $1.saves }
     }
     
+    // 标题数据
+    private let titles = ["进球榜", "助攻榜", "扑救榜"]
+    
     var body: some View {
         NavigationStack {
-            TabView(selection: $selectedTab) {
-                // 进球榜
-                LeaderboardTabView(
-                    title: "进球榜",
-                    items: goalScorers.map { (player: $0.player, value: $0.goals) },
-                    valueLabel: "进球",
-                    getValue: { $0 }
-                )
-                .tag(0)
+            VStack(spacing: 0) {
+                // 标题栏
+                HStack(spacing: 20) {
+                    ForEach(0..<titles.count, id: \.self) { index in
+                        VStack(spacing: 4) {
+                            Text(titles[index])
+                                .font(.headline)
+                                .foregroundColor(selectedTab == index ? .blue : .gray)
+                            
+                            // 下划线
+                            Rectangle()
+                                .fill(selectedTab == index ? Color.blue : Color.clear)
+                                .frame(height: 2)
+                        }
+                        .onTapGesture {
+                            withAnimation {
+                                selectedTab = index
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
                 
-                // 助攻榜
-                LeaderboardTabView(
-                    title: "助攻榜",
-                    items: assistLeaders.map { (player: $0.player, value: $0.assists) },
-                    valueLabel: "助攻",
-                    getValue: { $0 }
-                )
-                .tag(1)
-                
-                // 扑救榜
-                LeaderboardTabView(
-                    title: "扑救榜",
-                    items: saveLeaders.map { (player: $0.player, value: $0.saves) },
-                    valueLabel: "扑救",
-                    getValue: { $0 }
-                )
-                .tag(2)
+                // 排行榜内容
+                TabView(selection: $selectedTab) {
+                    // 进球榜
+                    LeaderboardTabView(
+                        title: "进球榜",
+                        items: goalScorers.map { (player: $0.player, value: $0.goals) },
+                        valueLabel: "进球",
+                        getValue: { $0 }
+                    )
+                    .tag(0)
+                    
+                    // 助攻榜
+                    LeaderboardTabView(
+                        title: "助攻榜",
+                        items: assistLeaders.map { (player: $0.player, value: $0.assists) },
+                        valueLabel: "助攻",
+                        getValue: { $0 }
+                    )
+                    .tag(1)
+                    
+                    // 扑救榜
+                    LeaderboardTabView(
+                        title: "扑救榜",
+                        items: saveLeaders.map { (player: $0.player, value: $0.saves) },
+                        valueLabel: "扑救",
+                        getValue: { $0 }
+                    )
+                    .tag(2)
+                }
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never)) // 隐藏默认的页面指示器
+                .onChange(of: selectedTab) { newValue in
+                    withAnimation {
+                        // 处理标题高亮
+                    }
+                }
             }
-            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
             .navigationTitle("数据排行")
         }
     }

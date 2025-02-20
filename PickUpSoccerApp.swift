@@ -10,13 +10,15 @@ import SwiftData
 
 @main
 struct PickUpSoccerApp: App {
-    let container: ModelContainer
+    let modelContainer: ModelContainer
+    @StateObject private var authManager: AuthManager
     
     init() {
         do {
-            // 配置 SwiftData 容器
             let config = ModelConfiguration(isStoredInMemoryOnly: false)
-            container = try ModelContainer(for: Player.self, configurations: config)
+            let container = try ModelContainer(for: Match.self, Player.self, configurations: config)
+            self.modelContainer = container
+            self._authManager = StateObject(wrappedValue: AuthManager(modelContext: container.mainContext))
         } catch {
             fatalError("Could not initialize ModelContainer: \(error)")
         }
@@ -24,8 +26,9 @@ struct PickUpSoccerApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            LaunchScreenView()
+                .environmentObject(authManager)
+                .modelContainer(modelContainer)
         }
-        .modelContainer(container)
     }
 }

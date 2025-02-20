@@ -14,6 +14,7 @@ final class Player {
     var gender: String?
     var height: Double?
     var weight: Double?
+    var appleUserID: String?
     
     // 统计数据（可通过计算获得）
     var totalGoals: Int = 0
