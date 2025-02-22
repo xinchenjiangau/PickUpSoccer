@@ -37,8 +37,7 @@ struct LeaderboardView: View {
             .mapValues { stats in
                 stats.reduce(0) { $0 + $1.saves }
             }
-        return players.filter { $0.position == .goalkeeper }
-            .map { player in
+        return players.map { player in
                 (player: player, saves: playerStats[player] ?? 0)
             }
             .sorted { $0.saves > $1.saves }
