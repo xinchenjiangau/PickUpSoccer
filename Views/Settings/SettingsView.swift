@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var weight = "70"
     @State private var preferredFoot = "右脚"
     @State private var boots = "猎鹰系列"
+    @State private var playerNumber = "10" // 球员号码
     
     private let genderOptions = ["男", "女"]
     private let footOptions = ["左脚", "右脚"]
@@ -89,8 +90,8 @@ struct SettingsView: View {
             settingRow("体重", value: $weight, options: weightRange, unit: "kg")
             settingRow("惯用脚", value: $preferredFoot, options: footOptions)
             settingRow("位置", text: authManager.currentPlayer?.position.rawValue ?? "")
-            settingRow("球鞋", text: boots)
-            settingRow("球员号码", text: "\(authManager.currentPlayer?.number ?? 0)")
+            settingRow("球鞋", value: $boots, options: [])
+            settingRow("球员号码", value: $playerNumber, options: [])
         }
         .padding()
         .background(Color(.secondarySystemBackground))
@@ -146,9 +147,10 @@ struct SettingsView: View {
     private var editProfileView: some View {
         NavigationView {
             Form {
-                // 编辑表单内容
                 Section {
                     TextField("昵称", text: .constant(authManager.currentPlayer?.name ?? ""))
+                    TextField("球鞋", text: $boots)
+                    TextField("球员号码", text: $playerNumber)
                     // 其他可编辑字段...
                 }
             }
@@ -159,6 +161,12 @@ struct SettingsView: View {
                 },
                 trailing: Button("保存") {
                     // 保存逻辑
+                    if let player = authManager.currentPlayer {
+                        player.name = "新昵称" // 更新昵称
+                        player.boots = boots // 更新球鞋
+                        player.number = Int(playerNumber) ?? 0 // 更新球员号码
+                        try? modelContext.save() // 持久化保存
+                    }
                     showEditSheet = false
                 }
             )
