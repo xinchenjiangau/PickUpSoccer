@@ -13,15 +13,17 @@ class AuthManager: ObservableObject {
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
         // 检查是否已登录
-        checkExistingUser()
+        Task {
+            await checkExistingUser()
+        }
     }
     
-    private func checkExistingUser() {
+    private func checkExistingUser() async {
         // 从 UserDefaults 获取存储的用户ID
         if let userID = UserDefaults.standard.string(forKey: "AppleUserID") {
             self.currentUserID = userID
             // 查找对应的 Player
-            findOrCreatePlayer(for: userID)
+            await findOrCreatePlayer(for: userID)
             self.isLoggedIn = true
         }
     }

@@ -33,4 +33,10 @@ final class Player {
         self.position = position
         self.matchStats = []
     }
+}
+
+extension Player {
+    var isProfileComplete: Bool {
+        return name != "新用户" && number != nil && profilePicture != nil
+    }
 } 

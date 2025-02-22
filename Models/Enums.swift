@@ -7,7 +7,7 @@ enum MatchStatus: String, Codable, CaseIterable {
     case cancelled = "已取消"
 }
 
-enum PlayerPosition: String, Codable {
+enum PlayerPosition: String, Codable, CaseIterable {
     case forward = "前锋"
     case midfielder = "中场"
     case defender = "后卫"
