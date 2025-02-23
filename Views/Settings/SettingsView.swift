@@ -1,179 +1,201 @@
 import SwiftUI
 import PhotosUI
+import SwiftData
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var authManager: AuthManager
-    @State private var showEditSheet = false
     @State private var selectedItem: PhotosPickerItem?
     @State private var profileImage: Image?
+    @State private var isEditingName = false
     
-    // 用户设置数据
-    @State private var gender = "男"
-    @State private var height = "170"
-    @State private var weight = "70"
-    @State private var preferredFoot = "右脚"
-    @State private var boots = "猎鹰系列"
-    @State private var playerNumber = "10" // 球员号码
+    // 用户数据
+    @State private var name: String = ""
+    @State private var gender: String = "男"
+    @State private var height: Int = 170
+    @State private var weight: Int = 70
+    @State private var preferredFoot: String = "右脚"
+    @State private var boots: String = ""
+    @State private var position: PlayerPosition = .forward
+    @State private var number: String = ""
     
-    private let genderOptions = ["男", "女"]
-    private let footOptions = ["左脚", "右脚"]
-    private let heightRange = Array(150...200).map { String($0) }
-    private let weightRange = Array(50...100).map { String($0) }
+    private let genders = ["男", "女"]
+    private let feet = ["左脚", "右脚"]
+    private let heights = Array(150...200)
+    private let weights = Array(40...120)
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // 头像和基本信息区域
-                    profileSection
-                    
-                    // 常用设置区域
-                    commonSettingsSection
-                    
-                    // 其他区域
-                    otherSection
+            ZStack {
+                Color.black.ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 30) {
+                        // 头像与基础信息区域
+                        profileSection
+                        
+                        // 常用设置区域
+                        commonSettingsSection
+                        
+                        // 其他区域
+                        otherSection
+                    }
+                    .padding()
                 }
-                .padding()
             }
-            .background(Color(.systemBackground))
-            .sheet(isPresented: $showEditSheet) {
-                editProfileView
-            }
-            .onChange(of: selectedItem) { _, newItem in
-                handleImageSelection(newItem)
+            .onAppear {
+                loadPlayerData()
             }
         }
     }
     
-    // MARK: - 头像和基本信息区域
+    // MARK: - 头像与基础信息区域
     private var profileSection: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 15) {
+            // 头像
             PhotosPicker(selection: $selectedItem) {
                 if let profileImage {
                     profileImage
                         .resizable()
                         .scaledToFill()
-                        .frame(width: 100, height: 100)
+                        .frame(width: 107, height: 107)
                         .clipShape(Circle())
                 } else {
-                    Image(systemName: "person.circle.fill")
+                    Image(systemName: "person.crop.circle.fill")
                         .resizable()
-                        .frame(width: 100, height: 100)
+                        .frame(width: 107, height: 107)
                         .foregroundColor(.gray)
                 }
             }
-            
-            Text(authManager.currentPlayer?.name ?? "昵称")
-                .font(.title2)
-            
-            Text("ID: \(authManager.currentPlayer?.id.uuidString.prefix(8) ?? "")")
-                .font(.caption)
-                .foregroundColor(.gray)
-            
-            Button("编辑") {
-                showEditSheet = true
+            .onChange(of: selectedItem) { _, newItem in
+                handleImageSelection(newItem)
             }
-            .font(.subheadline)
+            
+            // 昵称和ID
+            VStack(spacing: 8) {
+                if isEditingName {
+                    TextField("昵称", text: $name)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 200)
+                } else {
+                    Text(name)
+                        .font(.title2)
+                        .foregroundColor(.white)
+                }
+                
+                Text("ID: \(authManager.currentPlayer?.id.uuidString.prefix(16) ?? "")")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                
+                Button(isEditingName ? "保存" : "编辑") {
+                    if isEditingName {
+                        saveChanges()
+                    }
+                    isEditingName.toggle()
+                }
+                .foregroundColor(.white)
+                .padding(.vertical, 5)
+            }
         }
     }
     
     // MARK: - 常用设置区域
     private var commonSettingsSection: some View {
-        VStack(alignment: .leading, spacing: 15) {
+        VStack(alignment: .leading, spacing: 20) {
             Text("常用设置")
-                .font(.headline)
                 .foregroundColor(.gray)
+                .font(.headline)
             
-            settingRow("性别", value: $gender, options: genderOptions)
-            settingRow("身高", value: $height, options: heightRange, unit: "cm")
-            settingRow("体重", value: $weight, options: weightRange, unit: "kg")
-            settingRow("惯用脚", value: $preferredFoot, options: footOptions)
-            settingRow("位置", text: authManager.currentPlayer?.position.rawValue ?? "")
-            settingRow("球鞋", value: $boots, options: [])
-            settingRow("球员号码", value: $playerNumber, options: [])
+            Group {
+                settingRow("性别", selection: $gender, options: genders)
+                settingRow("身高", value: "\(height)cm") {
+                    Picker("身高", selection: $height) {
+                        ForEach(heights, id: \.self) { height in
+                            Text("\(height)cm").tag(height)
+                        }
+                    }
+                }
+                settingRow("体重", value: "\(weight)kg") {
+                    Picker("体重", selection: $weight) {
+                        ForEach(weights, id: \.self) { weight in
+                            Text("\(weight)kg").tag(weight)
+                        }
+                    }
+                }
+                settingRow("惯用脚", selection: $preferredFoot, options: feet)
+                settingRow("位置", value: position.rawValue) {
+                    Picker("位置", selection: $position) {
+                        ForEach(PlayerPosition.allCases, id: \.self) { position in
+                            Text(position.rawValue).tag(position)
+                        }
+                    }
+                }
+                settingRow("球鞋", text: $boots)
+                settingRow("球员号码", text: $number)
+            }
+            .onChange(of: gender) { _ in saveChanges() }
+            .onChange(of: height) { _ in saveChanges() }
+            .onChange(of: weight) { _ in saveChanges() }
+            .onChange(of: preferredFoot) { _ in saveChanges() }
+            .onChange(of: position) { _ in saveChanges() }
+            .onChange(of: boots) { _ in saveChanges() }
+            .onChange(of: number) { _ in saveChanges() }
         }
         .padding()
-        .background(Color(.secondarySystemBackground))
+        .background(Color.black.opacity(0.3))
         .cornerRadius(10)
     }
     
     // MARK: - 其他区域
     private var otherSection: some View {
-        VStack(alignment: .leading, spacing: 15) {
+        VStack(alignment: .leading, spacing: 20) {
             Text("其他")
-                .font(.headline)
                 .foregroundColor(.gray)
+                .font(.headline)
             
+
             NavigationLink("帮助") {
                 Text("帮助内容")
+                    .navigationTitle("帮助")
             }
+            .frame(maxWidth: .infinity, alignment: .leading) // 确保链接靠左
             
             NavigationLink("球员列表与数据") {
                 PlayerListView()
+                    .navigationTitle("球员列表")
             }
+            .frame(maxWidth: .infinity, alignment: .leading) // 确保链接靠左
         }
         .padding()
-        .background(Color(.secondarySystemBackground))
+        .background(Color.black.opacity(0.3))
         .cornerRadius(10)
     }
     
-    // MARK: - 辅助视图
-    private func settingRow(_ title: String, value: Binding<String>, options: [String], unit: String = "") -> some View {
-        HStack {
-            Text(title)
-                .font(.body)
-            Spacer()
-            Picker("", selection: value) {
-                ForEach(options, id: \.self) { option in
-                    Text("\(option)\(unit)").tag(option)
-                }
-            }
-            .pickerStyle(.menu)
-        }
-    }
-    
-    private func settingRow(_ title: String, text: String) -> some View {
-        HStack {
-            Text(title)
-                .font(.body)
-            Spacer()
-            Text(text)
-                .foregroundColor(.gray)
-        }
-    }
-    
-    // MARK: - 编辑个人资料视图
-    private var editProfileView: some View {
-        NavigationView {
-            Form {
-                Section {
-                    TextField("昵称", text: .constant(authManager.currentPlayer?.name ?? ""))
-                    TextField("球鞋", text: $boots)
-                    TextField("球员号码", text: $playerNumber)
-                    // 其他可编辑字段...
-                }
-            }
-            .navigationTitle("编辑资料")
-            .navigationBarItems(
-                leading: Button("取消") {
-                    showEditSheet = false
-                },
-                trailing: Button("保存") {
-                    // 保存逻辑
-                    if let player = authManager.currentPlayer {
-                        player.name = "新昵称" // 更新昵称
-                        player.boots = boots // 更新球鞋
-                        player.number = Int(playerNumber) ?? 0 // 更新球员号码
-                        try? modelContext.save() // 持久化保存
-                    }
-                    showEditSheet = false
-                }
-            )
-        }
-    }
-    
     // MARK: - 辅助方法
+    private func loadPlayerData() {
+        guard let player = authManager.currentPlayer else { return }
+        name = player.name
+        number = player.number.map(String.init) ?? ""
+        position = player.position
+        // 加载其他字段...
+    }
+    
+    private func saveChanges() {
+        guard let player = authManager.currentPlayer else { return }
+        player.name = name
+        if let numberInt = Int(number) {
+            player.number = numberInt
+        }
+        player.position = position
+        // 保存其他字段...
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("保存失败: \(error)")
+        }
+    }
+    
     private func handleImageSelection(_ newItem: PhotosPickerItem?) {
         Task {
             if let data = try? await newItem?.loadTransferable(type: Data.self),
@@ -189,17 +211,73 @@ struct SettingsView: View {
     
     private func saveImageLocally(_ image: UIImage) async throws -> URL? {
         guard let data = image.jpegData(compressionQuality: 0.7) else { return nil }
-        
         let filename = "\(UUID().uuidString).jpg"
         let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let fileURL = documentsDirectory.appendingPathComponent(filename)
-        
         try data.write(to: fileURL)
         return fileURL
     }
 }
 
+// MARK: - 辅助视图
+private struct SettingRow<Content: View>: View {
+    let title: String
+    let content: Content
+    
+    init(_ title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .foregroundColor(.white)
+            Spacer()
+            content
+        }
+    }
+}
+
+// MARK: - 设置行扩展
+extension View {
+    func settingRow(_ title: String, value: String, content: @escaping () -> some View) -> some View {
+        SettingRow(title) {
+            HStack {
+                Text(value)
+                    .foregroundColor(.gray)
+                content()
+            }
+        }
+    }
+    
+    func settingRow(_ title: String, selection: Binding<String>, options: [String]) -> some View {
+        SettingRow(title) {
+            Picker(title, selection: selection) {
+                ForEach(options, id: \.self) { option in
+                    Text(option).tag(option)
+                }
+            }
+        }
+    }
+    
+    func settingRow(_ title: String, text: Binding<String>) -> some View {
+        SettingRow(title) {
+            TextField(title, text: text)
+                .multilineTextAlignment(.trailing)
+                .foregroundColor(.gray)
+        }
+    }
+}
+
 #Preview {
-    SettingsView()
-        .modelContainer(for: Player.self, inMemory: true)
+    do {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: Player.self, configurations: config)
+        let context = container.mainContext
+        return SettingsView()
+            .environmentObject(AuthManager(modelContext: context))
+    } catch {
+        return Text("Failed to create preview: \(error.localizedDescription)")
+    }
 } 

@@ -15,7 +15,6 @@ final class Player {
     var height: Double?
     var weight: Double?
     var appleUserID: String?
-    var boots: String
     
     // 统计数据（可通过计算获得）
     var totalGoals: Int = 0
@@ -33,7 +32,6 @@ final class Player {
         self.number = number
         self.position = position
         self.matchStats = []
-        self.boots = ""
     }
 }
 
