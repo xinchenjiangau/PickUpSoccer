@@ -2,7 +2,61 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>NSPhoto</key>
 	<string></string>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSExtensionFileProviderDocumentGroup</key>
+	<string>group.com.yourcompany.PickUpSoccer</string>
+	<key>NSExtensionFileProviderSupportsEnumeration</key>
+	<true/>
+	<key>LSFileQuarantineEnabled</key>
+	<true/>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>需要访问文件以导入球员数据</string>
+	<key>UISupportsDocumentBrowser</key>
+	<true/>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>CSV Document</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.comma-separated-values-text</string>
+			</array>
+		</dict>
+	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.content</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>CSV File</string>
+			<key>UTTypeIdentifier</key>
+			<string>public.comma-separated-values-text</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>csv</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>text/csv</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 </dict>
 </plist>

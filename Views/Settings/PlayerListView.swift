@@ -7,7 +7,10 @@ struct PlayerListView: View {
     @Query(sort: \Player.number) private var players: [Player]
     @State private var showingAddPlayer = false
     @State private var showingExportSheet = false
+    @State private var showingImportSheet = false
     @State private var csvString: String = ""
+    @State private var showError = false
+    @State private var errorMessage = ""
     
     var body: some View {
         List {
@@ -35,6 +38,10 @@ struct PlayerListView: View {
                     Button(action: exportPlayerData) {
                         Label("导出数据", systemImage: "square.and.arrow.up")
                     }
+                    
+                    Button(action: { showingImportSheet = true }) {
+                        Label("导入数据", systemImage: "square.and.arrow.down")
+                    }
                 } label: {
                     Image(systemName: "plus")
                 }
@@ -56,6 +63,23 @@ struct PlayerListView: View {
                 print("导出失败: \(error.localizedDescription)")
             }
         }
+        .fileImporter(
+            isPresented: $showingImportSheet,
+            allowedContentTypes: [.commaSeparatedText]
+        ) { result in
+            switch result {
+            case .success(let url):
+                importCSV(from: url)
+            case .failure(let error):
+                errorMessage = "导入失败: \(error.localizedDescription)"
+                showError = true
+            }
+        }
+        .alert("错误", isPresented: $showError) {
+            Button("确定", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
     }
     
     private var formattedDate: String {
@@ -75,6 +99,33 @@ struct PlayerListView: View {
     private func exportPlayerData() {
         csvString = CSVExporter.exportPlayers(players)
         showingExportSheet = true
+    }
+    
+    private func importCSV(from url: URL) {
+        guard url.startAccessingSecurityScopedResource() else {
+            errorMessage = "无法访问选择的文件"
+            showError = true
+            return
+        }
+        
+        defer {
+            url.stopAccessingSecurityScopedResource()
+        }
+        
+        do {
+            let data = try Data(contentsOf: url)
+            guard let content = String(data: data, encoding: .utf8) else {
+                throw CSVImporter.ImportError.invalidData
+            }
+            
+            try CSVImporter.importPlayers(from: content, modelContext: modelContext)
+        } catch let error as CSVImporter.ImportError {
+            errorMessage = error.localizedDescription
+            showError = true
+        } catch {
+            errorMessage = "导入失败: \(error.localizedDescription)"
+            showError = true
+        }
     }
 }
 

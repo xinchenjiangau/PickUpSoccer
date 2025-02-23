@@ -13,9 +13,6 @@ struct UserPlayerView: View {
     @State private var position: PlayerPosition = .forward
     @State private var selectedItem: PhotosPickerItem?
     @State private var profileImage: Image?
-    @State private var gender: String = ""
-    @State private var height: String = ""
-    @State private var weight: String = ""
     
     // Alert 提示
     @State private var showMergeAlert = false
@@ -29,39 +26,34 @@ struct UserPlayerView: View {
     
     var body: some View {
         NavigationView {
-            content
-                .navigationTitle("完善球员资料")
-                .toolbar {
-                    toolbarItems
-                }
-                .alert("发现重复的球员名称", isPresented: $showMergeAlert) {
-                    alertButtons
-                } message: {
-                    Text("已有其他球员使用相同名称，是否合并数据？")
-                }
-                .alert("错误", isPresented: $showError) {
-                    Button("确定", role: .cancel) { }
-                } message: {
-                    Text(errorMessage)
-                }
+            Form {
+                basicInfoSection
+                avatarSection
+            }
+            .navigationTitle("完善球员资料")
+            .toolbar {
+                toolbarItems
+            }
+            .alert("发现重复的球员名称", isPresented: $showMergeAlert) {
+                alertButtons
+            } message: {
+                Text("已有其他球员使用相同名称，是否合并数据？")
+            }
+            .alert("错误", isPresented: $showError) {
+                Button("确定", role: .cancel) { }
+            } message: {
+                Text(errorMessage)
+            }
+            .onAppear {
+                loadPlayerData()
+            }
+            .onChange(of: selectedItem) { _, newItem in
+                handleImageSelection(newItem)
+            }
         }
     }
     
     // MARK: - 子视图
-    
-    @ViewBuilder
-    private var content: some View {
-        Form {
-            basicInfoSection
-            avatarSection
-        }
-        .onAppear {
-            loadPlayerData()
-        }
-        .onChange(of: selectedItem) { _, newItem in
-            handleImageSelection(newItem)
-        }
-    }
     
     @ViewBuilder
     private var basicInfoSection: some View {
@@ -70,11 +62,6 @@ struct UserPlayerView: View {
             TextField("号码", text: $number)
                 .keyboardType(.numberPad)
             positionPicker
-            TextField("性别", text: $gender)
-            TextField("身高", text: $height)
-                .keyboardType(.decimalPad)
-            TextField("体重", text: $weight)
-                .keyboardType(.decimalPad)
         }
     }
     
@@ -135,9 +122,6 @@ struct UserPlayerView: View {
             name = player.name
             number = player.number.map(String.init) ?? ""
             position = player.position
-            gender = player.gender ?? ""
-            height = player.height.map { String(format: "%.1f", $0) } ?? ""
-            weight = player.weight.map { String(format: "%.1f", $0) } ?? ""
         }
     }
     
@@ -189,17 +173,6 @@ struct UserPlayerView: View {
             player.number = numberInt
         }
         player.position = position
-        player.gender = gender
-        let formatter = NumberFormatter()
-        formatter.locale = Locale.current
-        formatter.numberStyle = .decimal
-        
-        if let heightDouble = Double(height.replacingOccurrences(of: ",", with: ".")) {
-            player.height = heightDouble
-        }
-        if let weightDouble = Double(weight.replacingOccurrences(of: ",", with: ".")) {
-            player.weight = weightDouble
-        }
         
         do {
             try modelContext.save()
@@ -253,9 +226,6 @@ struct UserPlayerView: View {
 }
 
 #Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Player.self, configurations: config)
-    
-    return UserPlayerView()
-        .modelContainer(container)
+    UserPlayerView()
+        .modelContainer(for: Player.self, inMemory: true)
 } 
