@@ -71,7 +71,7 @@ class AuthManager: ObservableObject {
                 self.currentPlayer = newPlayer
             }
         } catch {
-            print("查找用户失败: \(error)")
+            print("查找或创建用户失败: \(error)")
         }
     }
     

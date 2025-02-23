@@ -16,11 +16,6 @@ final class Player {
     var weight: Double?
     var appleUserID: String?
     
-    // 统计数据（可通过计算获得）
-    var totalGoals: Int = 0
-    var totalAssists: Int = 0
-    var totalMatches: Int = 0
-    
     @Relationship(deleteRule: .cascade) var matchStats: [PlayerMatchStats]
     
     init(id: UUID = UUID(),
@@ -32,6 +27,28 @@ final class Player {
         self.number = number
         self.position = position
         self.matchStats = []
+    }
+    
+    var totalGoals: Int {
+        matchStats.reduce(into: 0) { result, stats in
+            result += stats.goals
+        }
+    }
+    
+    var totalAssists: Int {
+        matchStats.reduce(into: 0) { result, stats in
+            result += stats.assists
+        }
+    }
+    
+    var totalMatches: Int {
+        matchStats.count
+    }
+    
+    var totalSaves: Int {
+        matchStats.reduce(into: 0) { result, stats in
+            result += stats.saves
+        }
     }
 }
 

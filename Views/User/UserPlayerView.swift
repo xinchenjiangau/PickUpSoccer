@@ -13,6 +13,9 @@ struct UserPlayerView: View {
     @State private var position: PlayerPosition = .forward
     @State private var selectedItem: PhotosPickerItem?
     @State private var profileImage: Image?
+    @State private var gender: String = ""
+    @State private var height: String = ""
+    @State private var weight: String = ""
     
     // Alert 提示
     @State private var showMergeAlert = false
@@ -67,6 +70,11 @@ struct UserPlayerView: View {
             TextField("号码", text: $number)
                 .keyboardType(.numberPad)
             positionPicker
+            TextField("性别", text: $gender)
+            TextField("身高", text: $height)
+                .keyboardType(.decimalPad)
+            TextField("体重", text: $weight)
+                .keyboardType(.decimalPad)
         }
     }
     
@@ -127,6 +135,9 @@ struct UserPlayerView: View {
             name = player.name
             number = player.number.map(String.init) ?? ""
             position = player.position
+            gender = player.gender ?? ""
+            height = player.height.map { String(format: "%.1f", $0) } ?? ""
+            weight = player.weight.map { String(format: "%.1f", $0) } ?? ""
         }
     }
     
@@ -178,6 +189,17 @@ struct UserPlayerView: View {
             player.number = numberInt
         }
         player.position = position
+        player.gender = gender
+        let formatter = NumberFormatter()
+        formatter.locale = Locale.current
+        formatter.numberStyle = .decimal
+        
+        if let heightDouble = Double(height.replacingOccurrences(of: ",", with: ".")) {
+            player.height = heightDouble
+        }
+        if let weightDouble = Double(weight.replacingOccurrences(of: ",", with: ".")) {
+            player.weight = weightDouble
+        }
         
         do {
             try modelContext.save()
@@ -192,10 +214,12 @@ struct UserPlayerView: View {
         guard let current = player else { return }
         
         for duplicate in duplicatePlayers {
-            current.totalGoals += duplicate.totalGoals
-            current.totalAssists += duplicate.totalAssists
-            current.totalMatches += duplicate.totalMatches
-            modelContext.delete(duplicate)
+            // 将重复球员的所有比赛统计转移到当前球员
+            for stats in duplicate.matchStats {
+                stats.player = current  // 更改统计数据的所属球员
+                current.matchStats.append(stats)  // 添加到当前球员的统计数组中
+            }
+            modelContext.delete(duplicate)  // 删除重复的球员
         }
         
         savePlayerInfo(merge: true)
