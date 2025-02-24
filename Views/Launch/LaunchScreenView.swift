@@ -25,7 +25,7 @@ struct LaunchScreenView: View {
                             .scaledToFit()
                             .frame(width: 120, height: 120)
                             .cornerRadius(25)
-                            .shadow(radius: 10)
+                            
                         
                         Text("PickUp Soccer")
                             .font(.system(size: 32, weight: .bold))

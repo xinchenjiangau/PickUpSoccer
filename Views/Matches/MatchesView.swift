@@ -22,10 +22,20 @@ struct MatchesView: View {
                 ForEach(matchesByStatus, id: \.status) { section in
                     Section(header: Text(section.status.rawValue)) {
                         ForEach(section.matches) { match in
-                            NavigationLink {
-                                MatchRecordView(match: match)
-                            } label: {
-                                MatchRowView(match: match)
+                            if match.status == .finished {
+                                // 已结束的比赛导航到统计视图
+                                NavigationLink {
+                                    MatchStatsView(match: match)
+                                } label: {
+                                    MatchRowView(match: match)
+                                }
+                            } else {
+                                // 进行中的比赛导航到记录视图
+                                NavigationLink {
+                                    MatchRecordView(match: match)
+                                } label: {
+                                    MatchRowView(match: match)
+                                }
                             }
                         }
                         .onDelete { indexSet in

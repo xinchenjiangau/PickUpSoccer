@@ -42,10 +42,10 @@ struct TimelineView: View {
                         if let stats = match.playerStats.first(where: { $0.player?.id == event.scorer?.id }),
                            stats.isHomeTeam {
                             HStack {
-                                Spacer()
                                 EventCard(event: event, isHomeTeam: true)
                                     .frame(height: eventUnitHeight)
                                     .frame(maxWidth: UIScreen.main.bounds.width / 2 - sideMargin - 16)
+                                Spacer()
                             }
                             .padding(.horizontal, sideMargin)
                             .position(x: UIScreen.main.bounds.width / 2,
@@ -61,10 +61,10 @@ struct TimelineView: View {
                         if let stats = match.playerStats.first(where: { $0.player?.id == event.scorer?.id }),
                            !stats.isHomeTeam {
                             HStack {
+                                Spacer()
                                 EventCard(event: event, isHomeTeam: false)
                                     .frame(height: eventUnitHeight)
                                     .frame(maxWidth: UIScreen.main.bounds.width / 2 - sideMargin - 16)
-                                Spacer()
                             }
                             .padding(.horizontal, sideMargin)
                             .position(x: UIScreen.main.bounds.width / 2,

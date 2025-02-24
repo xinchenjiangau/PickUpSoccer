@@ -146,6 +146,9 @@ struct MatchRecordView: View {
         // 计算并保存比赛时长（只保存分钟数）
         match.duration = Int(currentTime.timeIntervalSince(match.matchDate) / 60)
         
+        // 更新比赛统计数据
+        match.updateMatchStats()
+        
         // 保存更改
         try? modelContext.save()
         
