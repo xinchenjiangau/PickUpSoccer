@@ -16,13 +16,8 @@ struct TimelineView: View {
     // 计算时间线总高度
     private var timelineHeight: CGFloat {
         let eventCount = CGFloat(sortedEvents.count)
-        return eventCount * (eventUnitHeight + eventSpacing)
-    }
-    
-    // 计算事件位置
-    private func getEventPosition(_ event: MatchEvent) -> CGFloat {
-        guard let index = sortedEvents.firstIndex(where: { $0.id == event.id }) else { return 0 }
-        return CGFloat(index) * (eventUnitHeight + eventSpacing)
+        let totalHeight = eventCount * eventUnitHeight + (eventCount - 1) * eventSpacing
+        return max(totalHeight, UIScreen.main.bounds.height * 0.7)
     }
     
     var body: some View {
@@ -30,54 +25,47 @@ struct TimelineView: View {
             EmptyTimelineView()
         } else {
             ScrollView {
-                HStack(alignment: .top, spacing: sideSpacing) {
-                    // 主队事件（左侧）
-                    VStack(alignment: .trailing, spacing: 0) {
-                        ForEach(sortedEvents.indices, id: \.self) { index in
-                            let event = sortedEvents[index]
-                            if let stats = match.playerStats.first(where: { $0.player?.id == event.scorer?.id }),
-                               stats.isHomeTeam {
-                                EventCard(event: event, isHomeTeam: true)
-                                    .frame(height: eventUnitHeight)
-                                    .offset(y: CGFloat(index) * (eventUnitHeight + eventSpacing))
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    
+                ZStack(alignment: .top) {
                     // 时间线（中间）
-                    ZStack(alignment: .top) {
-                        Rectangle()
-                            .fill(Color(red: 0.15, green: 0.50, blue: 0.27))
-                            .frame(width: 2)
-                        
-                        ForEach(sortedEvents.indices, id: \.self) { index in
-                            let event = sortedEvents[index]
-                            TimelinePoint(event: event)
-                                .position(
-                                    x: 16,
-                                    y: CGFloat(index) * (eventUnitHeight + eventSpacing) + eventUnitHeight/2
-                                )
-                        }
-                    }
-                    .frame(width: 32, height: timelineHeight)
+                    Rectangle()
+                        .fill(Color(red: 0.15, green: 0.50, blue: 0.27))
+                        .frame(width: 2)
+                        .frame(maxHeight: .infinity)
+                        .padding(.horizontal, UIScreen.main.bounds.width / 2 - 1)
                     
-                    // 客队事件（右侧）
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(sortedEvents.indices, id: \.self) { index in
-                            let event = sortedEvents[index]
-                            if let stats = match.playerStats.first(where: { $0.player?.id == event.scorer?.id }),
-                               !stats.isHomeTeam {
-                                EventCard(event: event, isHomeTeam: false)
-                                    .frame(height: eventUnitHeight)
-                                    .offset(y: CGFloat(index) * (eventUnitHeight + eventSpacing))
-                            }
+                    // 所有事件和时间点
+                    ForEach(Array(sortedEvents.enumerated()), id: \.element.id) { index, event in
+                        let yPosition = CGFloat(index) * (eventUnitHeight + eventSpacing)
+                        
+                        // 主队事件（左侧）
+                        if let stats = match.playerStats.first(where: { $0.player?.id == event.scorer?.id }),
+                           stats.isHomeTeam {
+                            EventCard(event: event, isHomeTeam: true)
+                                .frame(height: eventUnitHeight)
+                                .frame(maxWidth: .infinity, alignment: .trailing)
+                                .padding(.trailing, sideSpacing + 16)
+                                .position(x: UIScreen.main.bounds.width / 2,
+                                        y: yPosition + eventUnitHeight / 2)
+                        }
+                        
+                        // 时间点
+                        TimelinePoint(event: event)
+                            .position(x: UIScreen.main.bounds.width / 2,
+                                    y: yPosition + eventUnitHeight / 2)
+                        
+                        // 客队事件（右侧）
+                        if let stats = match.playerStats.first(where: { $0.player?.id == event.scorer?.id }),
+                           !stats.isHomeTeam {
+                            EventCard(event: event, isHomeTeam: false)
+                                .frame(height: eventUnitHeight)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.leading, sideSpacing + 16)
+                                .position(x: UIScreen.main.bounds.width / 2,
+                                        y: yPosition + eventUnitHeight / 2)
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding()
-                .frame(minHeight: timelineHeight)
+                .frame(height: timelineHeight)
             }
         }
     }
