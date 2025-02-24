@@ -6,7 +6,8 @@ struct TimelineView: View {
     // 定义UI常量
     private let eventUnitHeight: CGFloat = 50  // 事件卡片固定高度
     private let eventSpacing: CGFloat = 18     // 事件间固定间距
-    private let sideSpacing: CGFloat = 16      // 事件卡片到时间线的水平间距
+    private let sideMargin: CGFloat = 10      // 两侧边距
+    private let timelineWidth: CGFloat = 2     // 时间线宽度
     
     // 按时间排序的所有事件
     private var sortedEvents: [MatchEvent] {
@@ -29,9 +30,9 @@ struct TimelineView: View {
                     // 时间线（中间）
                     Rectangle()
                         .fill(Color(red: 0.15, green: 0.50, blue: 0.27))
-                        .frame(width: 2)
+                        .frame(width: timelineWidth)
                         .frame(maxHeight: .infinity)
-                        .padding(.horizontal, UIScreen.main.bounds.width / 2 - 1)
+                        .padding(.horizontal, UIScreen.main.bounds.width / 2 - timelineWidth/2)
                     
                     // 所有事件和时间点
                     ForEach(Array(sortedEvents.enumerated()), id: \.element.id) { index, event in
@@ -40,12 +41,15 @@ struct TimelineView: View {
                         // 主队事件（左侧）
                         if let stats = match.playerStats.first(where: { $0.player?.id == event.scorer?.id }),
                            stats.isHomeTeam {
-                            EventCard(event: event, isHomeTeam: true)
-                                .frame(height: eventUnitHeight)
-                                .frame(maxWidth: .infinity, alignment: .trailing)
-                                .padding(.trailing, sideSpacing + 16)
-                                .position(x: UIScreen.main.bounds.width / 2,
-                                        y: yPosition + eventUnitHeight / 2)
+                            HStack {
+                                Spacer()
+                                EventCard(event: event, isHomeTeam: true)
+                                    .frame(height: eventUnitHeight)
+                                    .frame(maxWidth: UIScreen.main.bounds.width / 2 - sideMargin - 16)
+                            }
+                            .padding(.horizontal, sideMargin)
+                            .position(x: UIScreen.main.bounds.width / 2,
+                                    y: yPosition + eventUnitHeight / 2)
                         }
                         
                         // 时间点
@@ -56,12 +60,15 @@ struct TimelineView: View {
                         // 客队事件（右侧）
                         if let stats = match.playerStats.first(where: { $0.player?.id == event.scorer?.id }),
                            !stats.isHomeTeam {
-                            EventCard(event: event, isHomeTeam: false)
-                                .frame(height: eventUnitHeight)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.leading, sideSpacing + 16)
-                                .position(x: UIScreen.main.bounds.width / 2,
-                                        y: yPosition + eventUnitHeight / 2)
+                            HStack {
+                                EventCard(event: event, isHomeTeam: false)
+                                    .frame(height: eventUnitHeight)
+                                    .frame(maxWidth: UIScreen.main.bounds.width / 2 - sideMargin - 16)
+                                Spacer()
+                            }
+                            .padding(.horizontal, sideMargin)
+                            .position(x: UIScreen.main.bounds.width / 2,
+                                    y: yPosition + eventUnitHeight / 2)
                         }
                     }
                 }
