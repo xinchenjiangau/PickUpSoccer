@@ -8,6 +8,8 @@ struct MatchRecordView: View {
     @State private var showingEventSelection = false
     @State private var selectedTeamIsHome = true // 用于标识选中的是主队还是客队
     @State private var shouldNavigateToMatches = false  // 用于控制返回到 MatchesView
+    @State private var currentTime = Date()
+    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
     var redTeamPlayers: [Player] {
         match.playerStats.filter { $0.isHomeTeam }.map { $0.player! }
@@ -18,90 +20,95 @@ struct MatchRecordView: View {
     }
     
     var matchDuration: String {
-        let duration = Date().timeIntervalSince(match.matchDate)
+        let duration = currentTime.timeIntervalSince(match.matchDate)
         let minutes = Int(duration / 60)
-        return "\(minutes)'"
+        let seconds = Int(duration.truncatingRemainder(dividingBy: 60))
+        return String(format: "%02d:%02d", minutes, seconds)
     }
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 // 比分区域
-                VStack(spacing: 16) {
+                VStack(spacing: 20) {
                     // 比赛时间显示
                     Text(matchDuration)
-                        .font(.headline)
-                        .foregroundColor(.gray)
+                        .font(.custom("DingTalk JinBuTi", size: 20))
+                        .foregroundColor(.black)
+                        .padding(.top, 10)
+                        .onReceive(timer) { _ in
+                            // 只在比赛进行中更新时间
+                            if match.status == .inProgress {
+                                currentTime = Date()
+                            }
+                        }
+                    
+                    // 队伍名称
+                    HStack(spacing: 140) {
+                        Text("红队")
+                            .font(.custom("PingFang MO", size: 16))
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
+                        
+                        Text("蓝队")
+                            .font(.custom("PingFang MO", size: 16))
+                            .fontWeight(.medium)
+                            .foregroundColor(Color(red: 0.26, green: 0.56, blue: 0.81))
+                    }
+                    .padding(.horizontal, 40)
                     
                     // 比分显示
-                    HStack {
+                    HStack(spacing: 30) {
                         // 红队按钮
                         Button(action: {
                             selectedTeamIsHome = true
                             showingEventSelection = true
                         }) {
-                            VStack {
-                                Text("红队")
-                                    .font(.headline)
-                                    .foregroundColor(.red)
-                                Text("\(match.homeScore)")
-                                    .font(.system(size: 48, weight: .bold))
-                                    .foregroundColor(.red)
-                            }
+                            Text("\(match.homeScore)")
+                                .font(.custom("Poppins", size: 60))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.black)
+                                .frame(width: 100, height: 100)
+                                .background(
+                                    Circle()
+                                        .fill(Color.red.opacity(0.1))
+                                )
                         }
-                        .frame(maxWidth: .infinity)
                         
-                        Text("VS")
-                            .font(.title)
-                            .foregroundColor(.gray)
+                        Text("-")
+                            .font(.custom("Poppins", size: 60))
+                            .fontWeight(.semibold)
+                            .foregroundColor(.black)
                         
                         // 蓝队按钮
                         Button(action: {
                             selectedTeamIsHome = false
                             showingEventSelection = true
                         }) {
-                            VStack {
-                                Text("蓝队")
-                                    .font(.headline)
-                                    .foregroundColor(.blue)
-                                Text("\(match.awayScore)")
-                                    .font(.system(size: 48, weight: .bold))
-                                    .foregroundColor(.blue)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .padding()
-                    .background(Color.yellow.opacity(0.2))
-                    .cornerRadius(15)
-                    
-                    // 球员信息
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text("红队: \(redTeamPlayers.count)人")
-                                .foregroundColor(.red)
-                            ForEach(redTeamPlayers) { player in
-                                Text(player.name)
-                                    .font(.caption)
-                            }
-                        }
-                        Spacer()
-                        VStack(alignment: .trailing) {
-                            Text("蓝队: \(blueTeamPlayers.count)人")
-                                .foregroundColor(.blue)
-                            ForEach(blueTeamPlayers) { player in
-                                Text(player.name)
-                                    .font(.caption)
-                            }
+                            Text("\(match.awayScore)")
+                                .font(.custom("Poppins", size: 60))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.black)
+                                .frame(width: 100, height: 100)
+                                .background(
+                                    Circle()
+                                        .fill(Color.blue.opacity(0.1))
+                                )
                         }
                     }
-                    .padding(.horizontal)
                 }
-                .frame(height: UIScreen.main.bounds.height * 0.2)
+                .padding(.vertical, 20)
                 .background(Color.white)
-                .shadow(radius: 2)
+                .shadow(radius: 1)
                 
-                // 使用新的 TimelineView
+                // 时间线标题
+                Text("时间线")
+                    .font(.custom("PingFang MO", size: 24))
+                    .fontWeight(.medium)
+                    .foregroundColor(Color(red: 0.15, green: 0.50, blue: 0.27))
+                    .padding(.vertical, 20)
+                
+                // 时间线视图
                 TimelineView(match: match)
                     .frame(maxHeight: .infinity)
             }
@@ -110,7 +117,6 @@ struct MatchRecordView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("返回") {
-                        // 直接返回到 MatchesView，不改变比赛状态
                         shouldNavigateToMatches = true
                         dismiss()
                     }
@@ -131,11 +137,14 @@ struct MatchRecordView: View {
     }
     
     private func endMatch() {
+        // 停止计时
+        timer.upstream.connect().cancel()
+        
         // 更新比赛状态为已结束
         match.status = .finished
         
-        // 计算并保存比赛时长
-        match.duration = Int(Date().timeIntervalSince(match.matchDate) / 60)
+        // 计算并保存比赛时长（只保存分钟数）
+        match.duration = Int(currentTime.timeIntervalSince(match.matchDate) / 60)
         
         // 保存更改
         try? modelContext.save()
@@ -196,20 +205,17 @@ struct TimelineEventView: View {
     
     var body: some View {
         HStack(alignment: .top, spacing: 15) {
+            // 时间显示
+            Text(eventTimeString)
+                .font(.custom("DingTalk JinBuTi", size: 14))
+                .foregroundColor(.black)
+            
             // 时间线
             VStack(spacing: 0) {
-                // 时间
-                Text(eventTimeString)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                    .padding(.bottom, 4)
-                
-                // 时间线圆点
                 Circle()
                     .fill(eventColor)
                     .frame(width: 12, height: 12)
                 
-                // 连接线
                 if !isLastEvent {
                     Rectangle()
                         .fill(Color.gray.opacity(0.3))
@@ -220,23 +226,20 @@ struct TimelineEventView: View {
             
             // 事件内容
             VStack(alignment: .leading, spacing: 8) {
-                // 事件类型标签
                 HStack {
                     Image(systemName: event.eventType == .goal ? "soccerball" : "hand.raised.fill")
                         .foregroundColor(eventColor)
                     Text(event.eventType.rawValue)
-                        .font(.headline)
+                        .font(.custom("PingFang MO", size: 16))
                         .foregroundColor(eventColor)
                 }
                 
-                // 事件描述
                 Text(eventDescription)
-                    .font(.subheadline)
-                    .foregroundColor(.primary)
-                    .multilineTextAlignment(.leading)
+                    .font(.custom("PingFang MO", size: 14))
+                    .foregroundColor(.black)
             }
             .padding()
-            .background(Color.gray.opacity(0.1))
+            .background(Color.gray.opacity(0.05))
             .cornerRadius(8)
         }
         .padding(.horizontal)

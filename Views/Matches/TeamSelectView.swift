@@ -61,7 +61,13 @@ struct TeamSelectView: View {
                 }
             }
         }
-        .onChange(of: showingMatchRecord) { newValue in
+        .onChange(of: playerColors) { oldValue, newValue in
+            // 处理颜色分配变化
+        }
+        .onChange(of: firstPlayerSelected) { oldValue, newValue in
+            // 处理首个球员选择状态变化
+        }
+        .onChange(of: showingMatchRecord) { oldValue, newValue in
             if !newValue {
                 dismiss() // 当 MatchRecordView 关闭时，返回到 MatchesView
             }

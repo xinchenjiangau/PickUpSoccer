@@ -27,13 +27,18 @@ struct ParticipationSelectView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: TeamSelectView(selectedPlayers: Array(selectedPlayers)), isActive: $navigateToTeamSelect) {
+                        NavigationLink(destination: TeamSelectView(selectedPlayers: Array(selectedPlayers)), isActive: $navigateToTeamSelect) {
+
                         Button("完成") {
                             navigateToTeamSelect = true
                         }
                     }
                 }
             }
+            .onChange(of: selectedPlayers) { oldValue, newValue in
+                // 处理选择状态变化
+            }
+            
         }
     }
     

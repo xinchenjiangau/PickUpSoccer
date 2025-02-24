@@ -17,17 +17,21 @@ struct SettingsView: View {
     @State private var preferredFoot: String = "右脚"
     @State private var boots: String = ""
     @State private var position: PlayerPosition = .forward
-    @State private var number: String = ""
+    @State private var selectedNumber: Int = 0
+    
+    // 添加一个状态变量来存储 URL
+    @State private var profileImageURL: URL?
     
     private let genders = ["男", "女"]
     private let feet = ["左脚", "右脚"]
     private let heights = Array(150...200)
     private let weights = Array(40...120)
+    private let numbers = Array(0...99)
     
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.black.ignoresSafeArea()
+                Color.white.ignoresSafeArea()
                 
                 ScrollView {
                     VStack(spacing: 30) {
@@ -54,17 +58,26 @@ struct SettingsView: View {
         VStack(spacing: 15) {
             // 头像
             PhotosPicker(selection: $selectedItem) {
-                if let profileImage {
-                    profileImage
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 107, height: 107)
-                        .clipShape(Circle())
-                } else {
-                    Image(systemName: "person.crop.circle.fill")
-                        .resizable()
-                        .frame(width: 107, height: 107)
-                        .foregroundColor(.gray)
+                Group {
+                    if let profileImage {
+                        profileImage
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 107, height: 107)
+                            .clipShape(Circle())
+                    } else if let url = profileImageURL,
+                              let uiImage = UIImage(contentsOfFile: url.path) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 107, height: 107)
+                            .clipShape(Circle())
+                    } else {
+                        Image(systemName: "person.crop.circle.fill")
+                            .resizable()
+                            .frame(width: 107, height: 107)
+                            .foregroundColor(.gray)
+                    }
                 }
             }
             .onChange(of: selectedItem) { _, newItem in
@@ -80,12 +93,12 @@ struct SettingsView: View {
                 } else {
                     Text(name)
                         .font(.title2)
-                        .foregroundColor(.white)
+                        .foregroundColor(.black)
                 }
                 
                 Text("ID: \(authManager.currentPlayer?.id.uuidString.prefix(16) ?? "")")
                     .font(.caption)
-                    .foregroundColor(.gray)
+                    .foregroundColor(Color(red: 139/255, green: 139/255, blue: 139/255))
                 
                 Button(isEditingName ? "保存" : "编辑") {
                     if isEditingName {
@@ -93,7 +106,7 @@ struct SettingsView: View {
                     }
                     isEditingName.toggle()
                 }
-                .foregroundColor(.white)
+                .foregroundColor(.black)
                 .padding(.vertical, 5)
             }
         }
@@ -108,6 +121,7 @@ struct SettingsView: View {
             
             Group {
                 settingRow("性别", selection: $gender, options: genders)
+                    
                 settingRow("身高", value: "\(height)cm") {
                     Picker("身高", selection: $height) {
                         ForEach(heights, id: \.self) { height in
@@ -131,18 +145,38 @@ struct SettingsView: View {
                     }
                 }
                 settingRow("球鞋", text: $boots)
-                settingRow("球员号码", text: $number)
+                settingRow("球员号码", value: "\(selectedNumber)") {
+                    Picker("球员号码", selection: $selectedNumber) {
+                        ForEach(numbers, id: \.self) { number in
+                            Text("\(number)").tag(number)
+                        }
+                    }
+                }
             }
-            .onChange(of: gender) { _ in saveChanges() }
-            .onChange(of: height) { _ in saveChanges() }
-            .onChange(of: weight) { _ in saveChanges() }
-            .onChange(of: preferredFoot) { _ in saveChanges() }
-            .onChange(of: position) { _ in saveChanges() }
-            .onChange(of: boots) { _ in saveChanges() }
-            .onChange(of: number) { _ in saveChanges() }
+            .onChange(of: gender) { oldValue, newValue in 
+                saveChanges()
+            }
+            .onChange(of: height) { oldValue, newValue in 
+                saveChanges()
+            }
+            .onChange(of: weight) { oldValue, newValue in 
+                saveChanges()
+            }
+            .onChange(of: preferredFoot) { oldValue, newValue in 
+                saveChanges()
+            }
+            .onChange(of: position) { oldValue, newValue in 
+                saveChanges()
+            }
+            .onChange(of: boots) { oldValue, newValue in 
+                saveChanges()
+            }
+            .onChange(of: selectedNumber) { oldValue, newValue in 
+                saveChanges()
+            }
         }
         .padding()
-        .background(Color.black.opacity(0.3))
+        .background(Color.black.opacity(0.05))
         .cornerRadius(10)
     }
     
@@ -167,7 +201,7 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, alignment: .leading) // 确保链接靠左
         }
         .padding()
-        .background(Color.black.opacity(0.3))
+        .background(Color.black.opacity(0.05))
         .cornerRadius(10)
     }
     
@@ -175,17 +209,23 @@ struct SettingsView: View {
     private func loadPlayerData() {
         guard let player = authManager.currentPlayer else { return }
         name = player.name
-        number = player.number.map(String.init) ?? ""
+        selectedNumber = player.number ?? 0
         position = player.position
+        profileImageURL = player.profilePicture  // 加载头像 URL
+        
+        // 如果有头像 URL，加载头像
+        if let url = player.profilePicture,
+           let uiImage = UIImage(contentsOfFile: url.path) {
+            profileImage = Image(uiImage: uiImage)
+        }
+        
         // 加载其他字段...
     }
     
     private func saveChanges() {
         guard let player = authManager.currentPlayer else { return }
         player.name = name
-        if let numberInt = Int(number) {
-            player.number = numberInt
-        }
+        player.number = selectedNumber
         player.position = position
         // 保存其他字段...
         
@@ -200,8 +240,12 @@ struct SettingsView: View {
         Task {
             if let data = try? await newItem?.loadTransferable(type: Data.self),
                let uiImage = UIImage(data: data) {
+                // 更新显示的图片
                 profileImage = Image(uiImage: uiImage)
+                
+                // 保存图片到本地并更新 URL
                 if let url = try await saveImageLocally(uiImage) {
+                    profileImageURL = url
                     authManager.currentPlayer?.profilePicture = url
                     try? modelContext.save()
                 }
@@ -232,7 +276,7 @@ private struct SettingRow<Content: View>: View {
     var body: some View {
         HStack {
             Text(title)
-                .foregroundColor(.white)
+                .foregroundColor(.black)
             Spacer()
             content
         }

@@ -108,7 +108,7 @@ struct EventSelectionView: View {
                 }
             )
         }
-        .onChange(of: currentScorer) { newValue in
+        .onChange(of: currentScorer) { oldValue, newValue in
             print("currentScorer 更新为: \(newValue?.name ?? "nil")") // 调试输出
         }
     }

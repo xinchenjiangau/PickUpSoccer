@@ -102,7 +102,7 @@ struct LeaderboardView: View {
                     .tag(2)
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never)) // 隐藏默认的页面指示器
-                .onChange(of: selectedTab) { newValue in
+                .onChange(of: selectedTab) { oldValue, newValue in
                     withAnimation {
                         // 处理标题高亮
                     }
