@@ -47,30 +47,24 @@ struct LeaderboardView: View {
     private let titles = ["进球榜", "助攻榜", "扑救榜"]
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             VStack(spacing: 0) {
                 // 标题栏
-                HStack(spacing: 20) {
-                    ForEach(0..<titles.count, id: \.self) { index in
-                        VStack(spacing: 4) {
-                            Text(titles[index])
-                                .font(.headline)
-                                .foregroundColor(selectedTab == index ? .blue : .gray)
-                            
-                            // 下划线
-                            Rectangle()
-                                .fill(selectedTab == index ? Color.blue : Color.clear)
-                                .frame(height: 2)
-                        }
-                        .onTapGesture {
+                HStack {
+                    ForEach(0..<3) { index in
+                        Button(action: {
                             withAnimation {
                                 selectedTab = index
                             }
+                        }) {
+                            Text(["进球榜", "助攻榜", "扑救榜"][index])
+                                .foregroundColor(selectedTab == index ? .black : .gray)
+                                .padding(.vertical, 10)
+                                .frame(maxWidth: .infinity)
                         }
                     }
                 }
                 .padding(.horizontal)
-                .padding(.top, 8)
                 
                 // 排行榜内容
                 TabView(selection: $selectedTab) {
@@ -101,14 +95,10 @@ struct LeaderboardView: View {
                     )
                     .tag(2)
                 }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never)) // 隐藏默认的页面指示器
-                .onChange(of: selectedTab) { oldValue, newValue in
-                    withAnimation {
-                        // 处理标题高亮
-                    }
-                }
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             }
-            .navigationTitle("数据排行")
+            .navigationTitle("排行榜")
+            .navigationBarTitleDisplayMode(.large)
         }
     }
 }

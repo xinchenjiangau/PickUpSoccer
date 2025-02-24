@@ -17,7 +17,7 @@ struct MatchesView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationView {  // 改用 NavigationView
             List {
                 ForEach(matchesByStatus, id: \.status) { section in
                     Section(header: Text(section.status.rawValue)) {
@@ -39,7 +39,8 @@ struct MatchesView: View {
                     }
                 }
             }
-            .navigationTitle("比赛记录")
+            .navigationTitle("比赛")
+            .navigationBarTitleDisplayMode(.large)  // 明确指定标题显示模式
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {

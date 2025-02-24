@@ -30,26 +30,35 @@ struct EventSelectionView: View {
     
     var body: some View {
         VStack {
-            // 添加标题和滑动提示
+            // 标题栏
+            HStack(spacing: 20) {
+                // 进球选择标签
+                Text("选择进球球员")
+                    .font(.headline)
+                    .foregroundColor(selectedTab == 0 ? .black : .gray)
+                    .fontWeight(selectedTab == 0 ? .bold : .regular)
+                
+                // 扑救选择标签
+                Text("选择扑救球员")
+                    .font(.headline)
+                    .foregroundColor(selectedTab == 1 ? .black : .gray)
+                    .fontWeight(selectedTab == 1 ? .bold : .regular)
+            }
+            .padding(.top)
+            
+            // 滑动提示
             HStack {
-                Text(selectedTab == 0 ? "进球" : "扑救")
-                    .font(.title2)
-                    .fontWeight(.bold)
                 Image(systemName: "arrow.left.and.right.circle")
                     .foregroundColor(.blue)
                 Text("左右滑动切换")
                     .font(.subheadline)
                     .foregroundColor(.gray)
             }
-            .padding(.top)
+            .padding(.bottom)
             
             TabView(selection: $selectedTab) {
                 // 进球选择页面
                 VStack {
-                    Text("选择进球球员")
-                        .font(.headline)
-                        .padding()
-                    
                     List(selectedTeamPlayers) { player in
                         Button(action: {
                             handleGoalScorer(player)
@@ -57,8 +66,6 @@ struct EventSelectionView: View {
                             HStack {
                                 Text(player.name)
                                 Spacer()
-                                // Text("选择")
-                                //     .foregroundColor(.blue)
                             }
                         }
                     }
@@ -67,10 +74,6 @@ struct EventSelectionView: View {
                 
                 // 扑救选择页面
                 VStack {
-                    Text("选择扑救球员")
-                        .font(.headline)
-                        .padding()
-                    
                     List(selectedTeamPlayers) { player in
                         Button(action: {
                             recordSave(player)
@@ -78,15 +81,13 @@ struct EventSelectionView: View {
                             HStack {
                                 Text(player.name)
                                 Spacer()
-                                // Text("选择")
-                                //     .foregroundColor(.blue)
                             }
                         }
                     }
                 }
                 .tag(1)
             }
-            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
+            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))  // 隐藏默认指示器
         }
         .navigationTitle("\(isHomeTeam ? "红队" : "蓝队")事件")
         .navigationBarItems(trailing: Button("完成") {
@@ -97,7 +98,7 @@ struct EventSelectionView: View {
                 players: availableAssistPlayers,
                 onAssistSelected: { assistPlayer in
                     if let scorer = currentScorer {
-                        print("选择助攻球员：\(assistPlayer.name)，进球球员：\(scorer.name)") // 调试输出
+                        print("选择助攻球员：\(assistPlayer.name)，进球球员：\(scorer.name)")
                         recordGoal(scorer, assistant: assistPlayer)
                     }
                 },
@@ -109,7 +110,7 @@ struct EventSelectionView: View {
             )
         }
         .onChange(of: currentScorer) { oldValue, newValue in
-            print("currentScorer 更新为: \(newValue?.name ?? "nil")") // 调试输出
+            print("currentScorer 更新为: \(newValue?.name ?? "nil")")
         }
     }
     
@@ -186,39 +187,39 @@ struct EventSelectionView: View {
     }
 }
 
-// 助攻选择视图
+// 修改 AssistSelectionView 的标题部分
 struct AssistSelectionView: View {
-    @Environment(\.presentationMode) var presentationMode
     let players: [Player]
     let onAssistSelected: (Player) -> Void
     let onSkip: () -> Void
     
     var body: some View {
         NavigationView {
-            List {
-                Section {
-                    Button("无助攻") {
-                        onSkip()
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                }
+            VStack {
+                // 标题
+                Text("选择助攻球员")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.black)
+                    .padding(.top)
                 
-                if !players.isEmpty {
-                    Section("选择助攻球员") {
-                        ForEach(players) { player in
-                            Button(action: {
-                                onAssistSelected(player)
-                                presentationMode.wrappedValue.dismiss()
-                            }) {
-                                Text(player.name)
-                            }
+                List {
+                    ForEach(players) { player in
+                        Button(action: {
+                            onAssistSelected(player)
+                        }) {
+                            Text(player.name)
                         }
+                    }
+                    
+                    Button(action: onSkip) {
+                        Text("无助攻")
+                            .foregroundColor(.gray)
                     }
                 }
             }
-            .navigationTitle("选择助攻")
             .navigationBarItems(trailing: Button("取消") {
-                presentationMode.wrappedValue.dismiss()
+                onSkip()
             })
         }
     }

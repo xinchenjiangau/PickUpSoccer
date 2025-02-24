@@ -19,11 +19,6 @@ struct ContentView: View {
                     Label("比赛", systemImage: "soccerball")
                 }
             
-            PlayersView()
-                .tabItem {
-                    Label("球员", systemImage: "person")
-                }
-            
             LeaderboardView()
                 .tabItem {
                     Label("排行榜", systemImage: "list.number")
@@ -31,7 +26,7 @@ struct ContentView: View {
             
             SettingsView()
                 .tabItem {
-                    Label("设置", systemImage: "gear")
+                    Label("设置", systemImage: "gearshape")
                 }
         }
         .onAppear {

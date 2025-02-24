@@ -3,116 +3,96 @@ import SwiftUI
 struct TimelineView: View {
     let match: Match
     
-    // 添加动画状态
-    @State private var showEvents = false
+    // 定义UI常量
+    private let eventUnitHeight: CGFloat = 50  // 事件卡片固定高度
+    private let eventSpacing: CGFloat = 18     // 事件间固定间距
+    private let sideSpacing: CGFloat = 16      // 事件卡片到时间线的水平间距
     
-    // 计算比赛时长（分钟）
-    private var matchDuration: Int {
-        if match.status == .finished {
-            return match.duration ?? 0  // 使用 ?? 运算符提供默认值
-        }
-        return max(Int(Date().timeIntervalSince(match.matchDate) / 60), 1)
+    // 按时间排序的所有事件
+    private var sortedEvents: [MatchEvent] {
+        match.events.sorted { $0.timestamp < $1.timestamp }
     }
     
-    // 将事件按队伍分组并排序
-    private var groupedEvents: (home: [MatchEvent], away: [MatchEvent]) {
-        let sortedEvents = match.events.sorted { $0.timestamp < $1.timestamp }
-        print("总事件数: \(sortedEvents.count)")  // 调试输出
-        
-        let (home, away) = sortedEvents.reduce(into: ([MatchEvent](), [MatchEvent]())) { result, event in
-            if let stats = match.playerStats.first(where: { $0.player?.id == event.scorer?.id }) {
-                if stats.isHomeTeam {
-                    result.0.append(event)
-                } else {
-                    result.1.append(event)
-                }
-            }
-        }
-        
-        print("主队事件: \(home.count), 客队事件: \(away.count)")  // 调试输出
-        return (home: home, away: away)
+    // 计算时间线总高度
+    private var timelineHeight: CGFloat {
+        let eventCount = CGFloat(sortedEvents.count)
+        return eventCount * (eventUnitHeight + eventSpacing)
+    }
+    
+    // 计算事件位置
+    private func getEventPosition(_ event: MatchEvent) -> CGFloat {
+        guard let index = sortedEvents.firstIndex(where: { $0.id == event.id }) else { return 0 }
+        return CGFloat(index) * (eventUnitHeight + eventSpacing)
     }
     
     var body: some View {
         if match.events.isEmpty {
-            // 显示空状态
-            VStack {
-                Image(systemName: "soccerball")
-                    .font(.largeTitle)
-                    .foregroundColor(.gray)
-                Text("暂无比赛事件")
-                    .foregroundColor(.gray)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            EmptyTimelineView()
         } else {
             ScrollView {
-                HStack(alignment: .top, spacing: 0) {
+                HStack(alignment: .top, spacing: sideSpacing) {
                     // 主队事件（左侧）
                     VStack(alignment: .trailing, spacing: 0) {
-                        ForEach(groupedEvents.home) { event in
-                            EventCard(event: event, isHomeTeam: true)
-                                .padding(.vertical, getEventPadding(for: event))
+                        ForEach(sortedEvents.indices, id: \.self) { index in
+                            let event = sortedEvents[index]
+                            if let stats = match.playerStats.first(where: { $0.player?.id == event.scorer?.id }),
+                               stats.isHomeTeam {
+                                EventCard(event: event, isHomeTeam: true)
+                                    .frame(height: eventUnitHeight)
+                                    .offset(y: CGFloat(index) * (eventUnitHeight + eventSpacing))
+                            }
                         }
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                     
                     // 时间线（中间）
-                    TimelineBar(events: match.events, duration: matchDuration)
-                        .frame(width: 2)
+                    ZStack(alignment: .top) {
+                        Rectangle()
+                            .fill(Color(red: 0.15, green: 0.50, blue: 0.27))
+                            .frame(width: 2)
+                        
+                        ForEach(sortedEvents.indices, id: \.self) { index in
+                            let event = sortedEvents[index]
+                            TimelinePoint(event: event)
+                                .position(
+                                    x: 16,
+                                    y: CGFloat(index) * (eventUnitHeight + eventSpacing) + eventUnitHeight/2
+                                )
+                        }
+                    }
+                    .frame(width: 32, height: timelineHeight)
                     
                     // 客队事件（右侧）
                     VStack(alignment: .leading, spacing: 0) {
-                        ForEach(groupedEvents.away) { event in
-                            EventCard(event: event, isHomeTeam: false)
-                                .padding(.vertical, getEventPadding(for: event))
+                        ForEach(sortedEvents.indices, id: \.self) { index in
+                            let event = sortedEvents[index]
+                            if let stats = match.playerStats.first(where: { $0.player?.id == event.scorer?.id }),
+                               !stats.isHomeTeam {
+                                EventCard(event: event, isHomeTeam: false)
+                                    .frame(height: eventUnitHeight)
+                                    .offset(y: CGFloat(index) * (eventUnitHeight + eventSpacing))
+                            }
                         }
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding()
-                .frame(minHeight: UIScreen.main.bounds.height * 0.7)
-                .onAppear {
-                    withAnimation(.easeOut(duration: 0.5)) {
-                        showEvents = true
-                    }
-                }
+                .frame(minHeight: timelineHeight)
             }
         }
-    }
-    
-    // 计算事件之间的间距
-    private func getEventPadding(for event: MatchEvent) -> CGFloat {
-        let eventTime = Int(event.timestamp.timeIntervalSince(match.matchDate) / 60)
-        return CGFloat(eventTime) * 2 // 每分钟2个点的间距
     }
 }
 
-// 时间线组件
-struct TimelineBar: View {
-    let events: [MatchEvent]
-    let duration: Int
-    
+// 空状态视图
+struct EmptyTimelineView: View {
     var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .top) {
-                // 时间线
-                Rectangle()
-                    .fill(Color.gray.opacity(0.3))
-                
-                // 事件标记点
-                ForEach(events.sorted { $0.timestamp < $1.timestamp }) { event in
-                    TimelinePoint(event: event)
-                        .position(x: geometry.size.width / 2,
-                                y: getEventPosition(event, height: geometry.size.height))
-                }
-            }
+        VStack {
+            Image(systemName: "clock")
+                .font(.largeTitle)
+                .foregroundColor(.gray)
+            Text("暂无比赛事件")
+                .foregroundColor(.gray)
         }
-    }
-    
-    private func getEventPosition(_ event: MatchEvent, height: CGFloat) -> CGFloat {
-        let eventMinute = Int(event.timestamp.timeIntervalSince(event.match?.matchDate ?? Date()) / 60)
-        let position = (CGFloat(eventMinute) / CGFloat(max(duration, 1))) * height
-        return min(max(position, 0), height) // 确保位置在有效范围内
     }
 }
 
@@ -121,37 +101,28 @@ struct TimelinePoint: View {
     let event: MatchEvent
     
     var body: some View {
-        VStack(spacing: 2) {
-            Text("\(getEventMinute())'")
-                .font(.caption2)
-                .foregroundColor(.gray)
-            
+        ZStack {
+            // 外圈
             Circle()
-                .fill(getEventColor())
-                .frame(width: 8, height: 8)
+                .stroke(Color(red: 0.15, green: 0.50, blue: 0.27), lineWidth: 2)
+                .frame(width: 32, height: 32)
+            
+            // 内圈（白色背景）
+            Circle()
+                .fill(.white)
+                .frame(width: 30, height: 30)
+            
+            // 时间显示
+            Text("\(getEventMinute())'")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.black)
+                .frame(width: 28, height: 28)  // 确保文字在圆圈内
         }
     }
     
     private func getEventMinute() -> Int {
         guard let matchDate = event.match?.matchDate else { return 0 }
         return Int(event.timestamp.timeIntervalSince(matchDate) / 60)
-    }
-    
-    private func getEventColor() -> Color {
-        switch event.eventType {
-        case .goal:
-            return .yellow
-        case .assist:
-            return .green
-        case .save:
-            return .blue
-        case .yellowCard:
-            return .yellow
-        case .redCard:
-            return .red
-        case .foul:
-            return .orange
-        }
     }
 }
 
@@ -204,4 +175,14 @@ struct EventCard: View {
             return "\(event.scorer?.name ?? "") 红牌"
         }
     }
+}
+
+// 用于收集事件卡片高度的 PreferenceKey
+struct EventHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: [UUID: CGFloat] = [:]
+    
+    static func reduce(value: inout [UUID: CGFloat], nextValue: () -> [UUID: CGFloat]) {
+        value.merge(nextValue()) { _, new in new }
+    }
 } 
+    
