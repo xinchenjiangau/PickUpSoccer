@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import AVFoundation
+import Speech
 
 struct MatchRecordView: View {
     @Environment(\.modelContext) private var modelContext
@@ -9,6 +11,10 @@ struct MatchRecordView: View {
     @State private var selectedTeamIsHome = true // 用于标识选中的是主队还是客队
     @State private var shouldNavigateToMatches = false  // 用于控制返回到 MatchesView
     @State private var currentTime = Date()
+    @StateObject private var audioManager = AudioManager()
+    @State private var showingConfirmation = false
+    @State private var recognizedCommand = ""
+    @State private var currentEvent: MatchEvent?
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
     var redTeamPlayers: [Player] {
@@ -111,6 +117,23 @@ struct MatchRecordView: View {
                 // 时间线视图
                 TimelineView(match: match)
                     .frame(maxHeight: .infinity)
+                
+                // 添加录音按钮
+                VStack {
+                    Button(action: handleRecordingButton) {
+                        Image(systemName: audioManager.isRecording ? "stop.circle.fill" : "mic.circle.fill")
+                            .font(.system(size: 44))
+                            .foregroundColor(audioManager.isRecording ? .red : .blue)
+                    }
+                    .padding()
+                    
+                    if !audioManager.recognizedText.isEmpty {
+                        Text(audioManager.recognizedText)
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                }
+                .padding(.bottom)
             }
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
@@ -134,6 +157,88 @@ struct MatchRecordView: View {
         .sheet(isPresented: $showingEventSelection) {
             EventSelectionView(match: match, isHomeTeam: selectedTeamIsHome)
         }
+        .sheet(isPresented: $showingConfirmation) {
+            if let event = currentEvent {
+                ConfirmationView(
+                    recognizedText: recognizedCommand,
+                    onConfirm: {
+                        handleConfirmedEvent(event)
+                        showingConfirmation = false
+                    },
+                    onCancel: {
+                        showingConfirmation = false
+                    }
+                )
+            }
+        }
+        .alert("需要权限", isPresented: $audioManager.showPermissionAlert) {
+            Button("去设置", role: .cancel) {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("取消", role: .destructive) {
+                audioManager.showPermissionAlert = false
+            }
+        } message: {
+            Text(audioManager.permissionError ?? "请在设置中授予必要的权限")
+        }
+        .onAppear {
+            setupAudioManager()
+        }
+    }
+    
+    private func setupAudioManager() {
+        audioManager.recordingCallback = { text in
+            recognizedCommand = text
+            if let event = VoiceCommandParser.parseCommand(text, match: match) {
+                currentEvent = event
+                showingConfirmation = true
+            }
+        }
+    }
+    
+    private func handleRecordingButton() {
+        if audioManager.isRecording {
+            audioManager.stopRecording()
+        } else {
+            if audioManager.permissionGranted {
+                do {
+                    try audioManager.startRecording()
+                } catch {
+                    print("录音启动失败: \(error)")
+                }
+            } else {
+                audioManager.checkPermissions()
+            }
+        }
+    }
+    
+    private func handleConfirmedEvent(_ event: MatchEvent) {
+        // 更新比分
+        if event.eventType == .goal {
+            if event.isHomeTeam {
+                match.homeScore += 1
+            } else {
+                match.awayScore += 1
+            }
+            
+            // 更新球员统计
+            if let stats = match.playerStats.first(where: { $0.player?.id == event.scorer?.id }) {
+                stats.goals += 1
+            }
+        } else if event.eventType == .save {
+            // 更新球员统计
+            if let stats = match.playerStats.first(where: { $0.player?.id == event.scorer?.id }) {
+                stats.saves += 1
+            }
+        }
+        
+        // 添加事件到比赛记录
+        match.events.append(event)
+        
+        // 保存更改
+        try? modelContext.save()
     }
     
     private func endMatch() {

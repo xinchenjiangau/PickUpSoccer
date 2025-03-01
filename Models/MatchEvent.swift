@@ -6,6 +6,7 @@ final class MatchEvent {
     var id: UUID
     var eventType: EventType
     var timestamp: Date
+    var isHomeTeam: Bool = false
     
     @Relationship var match: Match?
     @Relationship var scorer: Player? // 进球者

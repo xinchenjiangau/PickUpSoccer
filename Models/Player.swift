@@ -15,6 +15,7 @@ final class Player {
     var height: Double?
     var weight: Double?
     var appleUserID: String?
+    var nickname: String?
     
     @Relationship(deleteRule: .cascade) var matchStats: [PlayerMatchStats]
     
