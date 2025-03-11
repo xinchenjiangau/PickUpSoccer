@@ -10,6 +10,25 @@ struct TeamSelectView: View {
     @State private var showingMatchRecord = false // 状态变量
     @State private var currentMatch: Match? // 存储当前创建的比赛
     
+    // 接收选定的赛季ID
+    var selectedSeasonID: UUID?
+    
+    init(selectedPlayers: [Player], selectedSeasonID: UUID? = nil) {
+        self._selectedPlayers = State(initialValue: selectedPlayers)
+        self.selectedSeasonID = selectedSeasonID
+    }
+    
+    // 查询所有赛季
+    @Query private var seasons: [Season]
+    
+    // 获取当前选择的赛季
+    var selectedSeason: Season? {
+        if let id = selectedSeasonID {
+            return seasons.first { $0.id == id }
+        }
+        return nil
+    }
+    
     var redTeam: [Player] {
         selectedPlayers.filter { playerColors[$0.id] == .red }
     }
@@ -36,14 +55,31 @@ struct TeamSelectView: View {
     }
     
     var body: some View {
-        List {
-            ForEach(selectedPlayers, id: \.id) { player in
-                Button(action: {
-                    togglePlayerColor(player)
-                }) {
-                    HStack {
-                        Text(player.name)
-                            .foregroundColor(playerColors[player.id] ?? .gray) // 默认灰色
+        VStack {
+            // 显示当前选择的赛季
+            if let season = selectedSeason {
+                HStack {
+                    Text("当前赛季:")
+                        .foregroundColor(.gray)
+                    Text(season.name)
+                        .fontWeight(.bold)
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
+            }
+            
+            // 显示队伍人数
+            teamCountsView
+            
+            List {
+                ForEach(selectedPlayers, id: \.id) { player in
+                    Button(action: {
+                        togglePlayerColor(player)
+                    }) {
+                        HStack {
+                            Text(player.name)
+                                .foregroundColor(playerColors[player.id] ?? .gray) // 默认灰色
+                        }
                     }
                 }
             }
@@ -72,6 +108,9 @@ struct TeamSelectView: View {
                 MatchRecordView(match: match)
             }
         }
+        .onAppear {
+            randomizeTeams() // 初始自动随机分队
+        }
     }
     
     private func createAndStartMatch() {
@@ -91,6 +130,12 @@ struct TeamSelectView: View {
         newMatch.events = []
         newMatch.playerStats = []
         
+        // 关联到选定的赛季
+        if let selectedSeason = selectedSeason {
+            newMatch.season = selectedSeason
+            selectedSeason.matches.append(newMatch)
+        }
+        
         // 为每个球员创建比赛统计
         for player in redTeam {
             let stats = PlayerMatchStats(player: player, match: newMatch)
@@ -106,6 +151,7 @@ struct TeamSelectView: View {
         
         // 保存到数据库
         modelContext.insert(newMatch)
+        try? modelContext.save()
         
         // 保存当前比赛并显示比赛记录页面
         currentMatch = newMatch

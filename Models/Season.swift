@@ -8,7 +8,7 @@ final class Season {
     var startDate: Date
     var endDate: Date
     var notes: String?
-    var resources: [Resource]?
+    @Relationship(deleteRule: .cascade) var resources: [Resource]?
     @Relationship(deleteRule: .cascade) var matches: [Match]
     
     init(id: UUID = UUID(),

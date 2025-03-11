@@ -4,9 +4,17 @@ import SwiftData
 struct ParticipationSelectView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var players: [Player]
+    @Query private var seasons: [Season]
     @State private var selectedPlayers: Set<Player> = []
-    @State private var navigateToTeamSelect = false // 状态变量
+    @State private var navigateToTeamSelect = false
     @Environment(\.presentationMode) var presentationMode
+    
+    // 接收选定的赛季ID
+    var selectedSeasonID: UUID?
+    
+    init(selectedSeasonID: UUID? = nil) {
+        self.selectedSeasonID = selectedSeasonID
+    }
     
     var body: some View {
         NavigationView {
@@ -27,18 +35,16 @@ struct ParticipationSelectView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                        NavigationLink(destination: TeamSelectView(selectedPlayers: Array(selectedPlayers)), isActive: $navigateToTeamSelect) {
-
+                    NavigationLink(destination: TeamSelectView(
+                        selectedPlayers: Array(selectedPlayers),
+                        selectedSeasonID: selectedSeasonID
+                    ), isActive: $navigateToTeamSelect) {
                         Button("完成") {
                             navigateToTeamSelect = true
                         }
                     }
                 }
             }
-            .onChange(of: selectedPlayers) { oldValue, newValue in
-                // 处理选择状态变化
-            }
-            
         }
     }
     
