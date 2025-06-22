@@ -59,6 +59,11 @@ struct TeamSelectView: View {
                 Button("开始比赛") {
                     createAndStartMatch()
                 }
+                
+                // 新增评分均衡分队按钮
+                Button("评分均衡分队") {
+                    assignBalancedTeams()
+                }
             }
         }
         
@@ -145,6 +150,41 @@ struct TeamSelectView: View {
         .background(Color.gray.opacity(0.1))
         .cornerRadius(8)
         .padding(.horizontal)
+    }
+    
+    /// 按评分均衡分队（贪心法）
+    func balancedTeams(players: [Player], season: Season?) -> ([Player], [Player]) {
+        // 取每个球员的赛季场均评分，没有则为6.0
+        let sorted = players.sorted { ($0.averageScoreForSeason(season)) > ($1.averageScoreForSeason(season)) }
+        var teamA: [Player] = []
+        var teamB: [Player] = []
+        var scoreA: Double = 0
+        var scoreB: Double = 0
+
+        for player in sorted {
+            let score = player.averageScoreForSeason(season)
+            if scoreA <= scoreB {
+                teamA.append(player)
+                scoreA += score
+            } else {
+                teamB.append(player)
+                scoreB += score
+            }
+        }
+        return (teamA, teamB)
+    }
+    
+    private func assignBalancedTeams() {
+        // 这里season参数可以根据你的业务传入当前赛季，如果没有可以传nil
+        let (red, blue) = balancedTeams(players: selectedPlayers, season: nil)
+        playerColors.removeAll()
+        for player in red {
+            playerColors[player.id] = .red
+        }
+        for player in blue {
+            playerColors[player.id] = .blue
+        }
+        firstPlayerSelected = true // 标记已分队
     }
 }
 

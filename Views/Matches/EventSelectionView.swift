@@ -12,7 +12,7 @@ struct EventSelectionView: View {
     @State private var currentScorer: Player? // 临时存储进球球员
     
     var selectedTeamPlayers: [Player] {
-        match.playerStats.filter { $0.isHomeTeam == isHomeTeam }.map { $0.player! }
+        match.playerStats.filter { $0.isHomeTeam == isHomeTeam }.compactMap { $0.player }
     }
     
     // 添加计算属性用于调试
@@ -127,6 +127,7 @@ struct EventSelectionView: View {
         let event = MatchEvent(
             eventType: .goal,
             timestamp: Date(),
+            isHomeTeam: isHomeTeam,
             match: match,
             scorer: scorer,
             assistant: assistant
@@ -166,6 +167,7 @@ struct EventSelectionView: View {
         let event = MatchEvent(
             eventType: .save,
             timestamp: Date(),
+            isHomeTeam: isHomeTeam,
             match: match,
             scorer: player,
             assistant: nil

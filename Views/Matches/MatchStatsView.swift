@@ -41,6 +41,21 @@ struct MatchStatsView: View {
                 .background(Color.white)
                 .cornerRadius(10)
                 
+                // 比赛事件列表
+                if !match.events.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("比赛事件")
+                            .font(.headline)
+                            .padding(.bottom, 4)
+                        ForEach(match.events.sorted(by: { $0.timestamp < $1.timestamp })) { event in
+                            MatchEventRow(event: event)
+                        }
+                    }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(10)
+                }
+                
                 // 最佳球员
                 VStack(alignment: .leading, spacing: 15) {
                     if let mvp = match.mvp {
@@ -59,6 +74,36 @@ struct MatchStatsView: View {
                 .padding()
                 .background(Color.white)
                 .cornerRadius(10)
+                
+                // 球员评分列表
+                if !match.playerStats.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("球员评分")
+                            .font(.headline)
+                            .padding(.bottom, 4)
+                        ForEach(match.playerStats.sorted(by: { $0.score > $1.score })) { stats in
+                            HStack {
+                                Text(stats.player?.name ?? "未知球员")
+                                    .frame(width: 80, alignment: .leading)
+                                Spacer()
+                                Text(String(format: "%.2f", stats.score))
+                                    .fontWeight(stats.score >= 8.0 ? .bold : .regular)
+                                    .foregroundColor(stats.score >= 8.0 ? .orange : .primary)
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(10)
+                }
+                
+                if match.status == .finished {
+                    Text("比赛已结束，事件仅供查看，无法编辑。")
+                        .font(.footnote)
+                        .foregroundColor(.gray)
+                        .padding(.bottom, 4)
+                }
             }
             .padding()
         }
@@ -96,6 +141,49 @@ struct PlayerAwardRow: View {
             Spacer()
             Text(player.name)
                 .foregroundColor(.black)
+        }
+    }
+}
+
+// 比赛事件行组件
+struct MatchEventRow: View {
+    let event: MatchEvent
+
+    var body: some View {
+        HStack {
+            Text(event.timestamp.formatted(date: .omitted, time: .shortened))
+                .font(.caption)
+                .foregroundColor(.gray)
+                .frame(width: 60, alignment: .leading)
+            Text(event.eventType.rawValue)
+                .fontWeight(.bold)
+                .foregroundColor(colorForEventType(event.eventType))
+                .frame(width: 50, alignment: .leading)
+            if let scorer = event.scorer {
+                Text(scorer.name)
+                    .foregroundColor(.primary)
+            }
+            if let assistant = event.assistant, event.eventType == .goal {
+                Text("助攻: \(assistant.name)")
+                    .foregroundColor(.secondary)
+                    .font(.caption)
+            }
+            Spacer()
+            Text(event.isHomeTeam ? "主队" : "客队")
+                .font(.caption2)
+                .foregroundColor(event.isHomeTeam ? .red : .blue)
+        }
+        .padding(.vertical, 2)
+    }
+
+    func colorForEventType(_ type: EventType) -> Color {
+        switch type {
+        case .goal: return .red
+        case .assist: return .orange
+        case .save: return .blue
+        case .foul: return .gray
+        case .yellowCard: return .yellow
+        case .redCard: return .red
         }
     }
 } 

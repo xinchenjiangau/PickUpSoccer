@@ -99,10 +99,12 @@ class VoiceCommandParser {
                 let distance = abs(namePosition - keywordPosition)
                 
                 if distance <= maxWordDistance {
+                    let stats = match.playerStats.first(where: { $0.player?.id == player.id })
                     // 创建事件
                     let event = MatchEvent(
                         eventType: .goal,
                         timestamp: Date(),
+                        isHomeTeam: stats?.isHomeTeam ?? false, // 这里要传递
                         match: match,
                         scorer: player,
                         assistant: nil
@@ -171,10 +173,12 @@ class VoiceCommandParser {
                 let distance = abs(namePosition - keywordPosition)
                 
                 if distance <= maxWordDistance {
+                    let stats = match.playerStats.first(where: { $0.player?.id == player.id })
                     // 创建事件
                     let event = MatchEvent(
                         eventType: .save,
                         timestamp: Date(),
+                        isHomeTeam: stats?.isHomeTeam ?? false, // 这里要传递
                         match: match,
                         scorer: player,
                         assistant: nil
