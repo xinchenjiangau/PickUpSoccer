@@ -4,14 +4,51 @@ import SwiftData
 struct MatchStatsView: View {
     let match: Match
     @Environment(\.dismiss) private var dismiss
+    @State private var showingDatePicker = false
+    @State private var selectedDate: Date = Date()
+    @Environment(\.modelContext) private var modelContext
     
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 // 比赛基本信息
                 VStack(spacing: 8) {
-                    Text("比赛时间：\(match.matchDate.formatted(date: .numeric, time: .shortened))")
+                    HStack {
+                        Text("比赛时间：")
                         .foregroundColor(.gray)
+                        Button(action: {
+                            selectedDate = match.matchDate
+                            showingDatePicker = true
+                        }) {
+                            Text(match.matchDate.formatted(date: .numeric, time: .shortened))
+                                .foregroundColor(.blue)
+                                .underline()
+                        }
+                    }
+                    .sheet(isPresented: $showingDatePicker) {
+                        VStack {
+                            DatePicker(
+                                "选择比赛时间",
+                                selection: $selectedDate,
+                                displayedComponents: [.date, .hourAndMinute]
+                            )
+                            .datePickerStyle(.graphical)
+                            .padding()
+                            HStack {
+                                Button("取消") {
+                                    showingDatePicker = false
+                                }
+                                Spacer()
+                                Button("确定") {
+                                    match.matchDate = selectedDate
+                                    try? modelContext.save()
+                                    showingDatePicker = false
+                                }
+                            }
+                            .padding()
+                        }
+                        .presentationDetents([.medium])
+                    }
                     
                     // 比分区域
                     HStack(spacing: 20) {

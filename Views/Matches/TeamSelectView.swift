@@ -9,6 +9,8 @@ struct TeamSelectView: View {
     @State private var firstPlayerSelected: Bool = false // 记录是否已选择第一个球员
     @State private var showingMatchRecord = false // 状态变量
     @State private var currentMatch: Match? // 存储当前创建的比赛
+    @State private var redTeamAverageScore: Double = 0
+    @State private var blueTeamAverageScore: Double = 0
     
     var redTeam: [Player] {
         selectedPlayers.filter { playerColors[$0.id] == .red }
@@ -33,9 +35,20 @@ struct TeamSelectView: View {
         for (index, player) in shuffledPlayers.enumerated() {
             playerColors[player.id] = index < redTeamSize ? .red : .blue
         }
+        updateTeamAverageScores()
     }
     
     var body: some View {
+        VStack {
+            teamCountsView
+            HStack {
+                Text(String(format: "红队平均分: %.2f", redTeamAverageScore))
+                    .foregroundColor(.red)
+                Spacer()
+                Text(String(format: "蓝队平均分: %.2f", blueTeamAverageScore))
+                    .foregroundColor(.blue)
+            }
+            .padding(.horizontal)
         List {
             ForEach(selectedPlayers, id: \.id) { player in
                 Button(action: {
@@ -59,11 +72,11 @@ struct TeamSelectView: View {
                 Button("开始比赛") {
                     createAndStartMatch()
                 }
-                
-                // 新增评分均衡分队按钮
-                Button("评分均衡分队") {
-                    assignBalancedTeams()
-                }
+                    
+                    // 新增评分均衡分队按钮
+                    Button("评分均衡分队") {
+                        assignBalancedTeams()
+                    }
             }
         }
         
@@ -75,6 +88,7 @@ struct TeamSelectView: View {
         .fullScreenCover(isPresented: $showingMatchRecord) {
             if let match = currentMatch {
                 MatchRecordView(match: match)
+                }
             }
         }
     }
@@ -135,6 +149,7 @@ struct TeamSelectView: View {
                 playerColors[player.id] = .red // 切换为红色
             }
         }
+        updateTeamAverageScores()
     }
     
     // 添加队伍人数显示
@@ -152,39 +167,69 @@ struct TeamSelectView: View {
         .padding(.horizontal)
     }
     
-    /// 按评分均衡分队（贪心法）
+    /// 按评分均衡分队（贪心算法）
     func balancedTeams(players: [Player], season: Season?) -> ([Player], [Player]) {
-        // 取每个球员的赛季场均评分，没有则为6.0
-        let sorted = players.sorted { ($0.averageScoreForSeason(season)) > ($1.averageScoreForSeason(season)) }
+        // 1. 按评分排序
+        let sortedPlayers = players.sorted { 
+            $0.averageScoreForSeason(season) > $1.averageScoreForSeason(season) 
+        }
+        
+        let teamSize = players.count / 2
         var teamA: [Player] = []
         var teamB: [Player] = []
-        var scoreA: Double = 0
-        var scoreB: Double = 0
-
-        for player in sorted {
+        var sumA: Double = 0
+        var sumB: Double = 0
+        
+        // 2. 使用贪心策略分配球员
+        for player in sortedPlayers {
             let score = player.averageScoreForSeason(season)
-            if scoreA <= scoreB {
+            if (sumA <= sumB && teamA.count < teamSize) || teamB.count >= (players.count - teamSize) {
                 teamA.append(player)
-                scoreA += score
+                sumA += score
             } else {
                 teamB.append(player)
-                scoreB += score
+                sumB += score
             }
         }
+        
         return (teamA, teamB)
     }
     
     private func assignBalancedTeams() {
-        // 这里season参数可以根据你的业务传入当前赛季，如果没有可以传nil
+        // 添加错误处理
+        guard !selectedPlayers.isEmpty else { return }
+        
         let (red, blue) = balancedTeams(players: selectedPlayers, season: nil)
         playerColors.removeAll()
+        
+        // 使用批量更新减少重绘次数
         for player in red {
             playerColors[player.id] = .red
         }
         for player in blue {
             playerColors[player.id] = .blue
         }
-        firstPlayerSelected = true // 标记已分队
+        
+        firstPlayerSelected = true
+        updateTeamAverageScores()
+    }
+    
+    private func updateTeamAverageScores() {
+        let redScores = redTeam.map { $0.averageScoreForSeason(nil) }
+        let blueScores = blueTeam.map { $0.averageScoreForSeason(nil) }
+        redTeamAverageScore = redScores.isEmpty ? 0 : redScores.reduce(0, +) / Double(redScores.count)
+        blueTeamAverageScore = blueScores.isEmpty ? 0 : blueScores.reduce(0, +) / Double(blueScores.count)
+    }
+}
+
+extension Array {
+    func combinations(ofCount k: Int) -> [[Element]] {
+        guard k > 0 else { return [[]] }
+        guard let first = first else { return [] }
+        let subcombos = Array(self[1...]).combinations(ofCount: k - 1)
+        var result = subcombos.map { [first] + $0 }
+        result += Array(self[1...]).combinations(ofCount: k)
+        return result
     }
 }
 

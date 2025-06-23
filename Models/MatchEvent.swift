@@ -14,11 +14,11 @@ final class MatchEvent {
     
     init(
         id: UUID = UUID(),
-        eventType: EventType,
-        timestamp: Date,
+         eventType: EventType,
+         timestamp: Date,
         isHomeTeam: Bool,
-        match: Match? = nil,
-        scorer: Player? = nil,
+         match: Match? = nil,
+         scorer: Player? = nil,
         assistant: Player? = nil
     ) {
         self.id = id

@@ -43,21 +43,32 @@ struct LeaderboardView: View {
             .sorted { $0.saves > $1.saves }
     }
     
+    // 评分榜
+    var scoreLeaders: [(player: Player, averageScore: Double)] {
+        let playerStats = Dictionary(grouping: matchStats, by: { $0.player! })
+        return players.map { player in
+            let stats = playerStats[player] ?? []
+            let avg = stats.isEmpty ? 0 : stats.map { $0.score }.reduce(0, +) / Double(stats.count)
+            return (player: player, averageScore: avg)
+        }
+        .sorted { $0.averageScore > $1.averageScore }
+    }
+    
     // 标题数据
-    private let titles = ["进球榜", "助攻榜", "扑救榜"]
+    private let titles = ["进球榜", "助攻榜", "扑救榜", "评分榜"]
     
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
                 // 标题栏
                 HStack {
-                    ForEach(0..<3) { index in
+                    ForEach(0..<4) { index in
                         Button(action: {
                             withAnimation {
                                 selectedTab = index
                             }
                         }) {
-                            Text(["进球榜", "助攻榜", "扑救榜"][index])
+                            Text(["进球榜", "助攻榜", "扑救榜", "评分榜"][index])
                                 .foregroundColor(selectedTab == index ? .black : .gray)
                                 .padding(.vertical, 10)
                                 .frame(maxWidth: .infinity)
@@ -94,6 +105,14 @@ struct LeaderboardView: View {
                         getValue: { $0 }
                     )
                     .tag(2)
+                    
+                    // 评分榜
+                    LeaderboardScoreTabView(
+                        title: "评分榜",
+                        items: scoreLeaders,
+                        valueLabel: "场均评分"
+                    )
+                    .tag(3)
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             }
@@ -136,6 +155,42 @@ struct LeaderboardTabView<T: BinaryInteger>: View {
                         Text("\(getValue(item.value))")
                             .font(.headline)
                             .foregroundColor(.blue)
+                        Text(valueLabel)
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+    }
+}
+
+struct LeaderboardScoreTabView: View {
+    let title: String
+    let items: [(player: Player, averageScore: Double)]
+    let valueLabel: String
+
+    var body: some View {
+        List {
+            ForEach(Array(items.enumerated()), id: \.element.player.id) { index, item in
+                HStack {
+                    Text("\(index + 1)")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                        .frame(width: 30)
+                    VStack(alignment: .leading) {
+                        Text(item.player.name)
+                            .font(.headline)
+                        Text(item.player.position.rawValue)
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    Spacer()
+                    HStack {
+                        Text(String(format: "%.2f", item.averageScore))
+                            .font(.headline)
+                            .foregroundColor(.orange)
                         Text(valueLabel)
                             .font(.caption)
                             .foregroundColor(.gray)
