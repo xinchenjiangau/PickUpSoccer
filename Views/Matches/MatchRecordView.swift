@@ -15,6 +15,7 @@ struct MatchRecordView: View {
     @State private var showingConfirmation = false
     @State private var recognizedCommand = ""
     @State private var currentEvent: MatchEvent?
+    @State private var showingAddPlayer = false
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
     var redTeamPlayers: [Player] {
@@ -30,6 +31,20 @@ struct MatchRecordView: View {
         let minutes = Int(duration / 60)
         let seconds = Int(duration.truncatingRemainder(dividingBy: 60))
         return String(format: "%02d:%02d", minutes, seconds)
+    }
+    
+    // 计算红队平均分
+    var redTeamAverageScore: Double {
+        let redTeamStats = match.playerStats.filter { $0.isHomeTeam }
+        guard !redTeamStats.isEmpty else { return 0 }
+        return redTeamStats.reduce(0.0) { $0 + $1.score } / Double(redTeamStats.count)
+    }
+    
+    // 计算蓝队平均分
+    var blueTeamAverageScore: Double {
+        let blueTeamStats = match.playerStats.filter { !$0.isHomeTeam }
+        guard !blueTeamStats.isEmpty else { return 0 }
+        return blueTeamStats.reduce(0.0) { $0 + $1.score } / Double(blueTeamStats.count)
     }
     
     var body: some View {
@@ -48,6 +63,16 @@ struct MatchRecordView: View {
                                 currentTime = Date()
                             }
                         }
+                    
+                    // 添加平均分显示
+                    HStack(spacing: 140) {
+                        Text(String(format: "%.1f", redTeamAverageScore))
+                            .font(.caption)
+                            .foregroundColor(.red)
+                        Text(String(format: "%.1f", blueTeamAverageScore))
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                    }
                     
                     // 队伍名称
                     HStack(spacing: 140) {
@@ -144,9 +169,20 @@ struct MatchRecordView: View {
                         dismiss()
                     }
                 }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("结束比赛") {
-                        endMatch()
+                    Menu {
+                        Button(action: {
+                            showingAddPlayer = true
+                        }) {
+                            Label("添加球员", systemImage: "person.badge.plus")
+                        }
+                        
+                        Button("结束比赛") {
+                            endMatch()
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
                 }
             }
@@ -170,6 +206,9 @@ struct MatchRecordView: View {
                     }
                 )
             }
+        }
+        .sheet(isPresented: $showingAddPlayer) {
+            AddMatchPlayerView(match: match)
         }
         .alert("需要权限", isPresented: $audioManager.showPermissionAlert) {
             Button("去设置", role: .cancel) {
