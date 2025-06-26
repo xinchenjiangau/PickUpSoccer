@@ -10,25 +10,36 @@ import SwiftData
 
 @main
 struct PickUpSoccerApp: App {
-    let modelContainer: ModelContainer
-    @StateObject private var authManager: AuthManager
-    
-    init() {
+    // 1. 获取 SwiftData 的 ModelContainer
+    var sharedModelContainer: ModelContainer = {
+        let schema = Schema([
+            Item.self,
+            Match.self,
+            Player.self,
+            MatchEvent.self,
+            Season.self,
+        ])
+        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+
         do {
-            let config = ModelConfiguration(isStoredInMemoryOnly: false)
-            let container = try ModelContainer(for: Match.self, Player.self, configurations: config)
-            self.modelContainer = container
-            self._authManager = StateObject(wrappedValue: AuthManager(modelContext: container.mainContext))
+            return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            fatalError("Could not initialize ModelContainer: \(error)")
+            fatalError("Could not create ModelContainer: \(error)")
         }
+    }()
+
+
+    init() {
+        // 2. 在App初始化时，将 ModelContainer 交给 WatchConnectivityManager
+        // 这样它就能在后台处理来自手表的数据了
+        WatchConnectivityManager.shared.configure(with: sharedModelContainer)
+        
     }
     
     var body: some Scene {
         WindowGroup {
-            LaunchScreenView()
-                .environmentObject(authManager)
-                .modelContainer(modelContainer)
+            RootView()
         }
+        .modelContainer(sharedModelContainer)
     }
 }

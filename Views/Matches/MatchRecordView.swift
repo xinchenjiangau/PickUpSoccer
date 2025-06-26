@@ -16,14 +16,15 @@ struct MatchRecordView: View {
     @State private var recognizedCommand = ""
     @State private var currentEvent: MatchEvent?
     @State private var showingAddPlayer = false
+    @State private var showEndConfirmation = false
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
     var redTeamPlayers: [Player] {
-        match.playerStats.filter { $0.isHomeTeam }.map { $0.player! }
+        match.playerStats.filter { $0.isHomeTeam }.compactMap { $0.player }
     }
     
     var blueTeamPlayers: [Player] {
-        match.playerStats.filter { !$0.isHomeTeam }.map { $0.player! }
+        match.playerStats.filter { !$0.isHomeTeam }.compactMap { $0.player }
     }
     
     var matchDuration: String {
@@ -72,7 +73,7 @@ struct MatchRecordView: View {
                         Text(String(format: "%.1f", blueTeamAverageScore))
                             .font(.caption)
                             .foregroundColor(.blue)
-                    }
+                        }
                     
                     // 队伍名称
                     HStack(spacing: 140) {
@@ -160,35 +161,35 @@ struct MatchRecordView: View {
                 }
                 .padding(.bottom)
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("返回") {
-                        shouldNavigateToMatches = true
-                        dismiss()
-                    }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button(action: {
-                            showingAddPlayer = true
-                        }) {
-                            Label("添加球员", systemImage: "person.badge.plus")
-                        }
-                        
-                        Button("结束比赛") {
-                            endMatch()
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button("返回") {
+                    shouldNavigateToMatches = true
+                    dismiss()
                 }
             }
-            .navigationDestination(isPresented: $shouldNavigateToMatches) {
-                MatchesView()
+            
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button(action: {
+                        showingAddPlayer = true
+                    }) {
+                        Label("添加球员", systemImage: "person.badge.plus")
+                    }
+                    
+                    Button("结束比赛") {
+                        showEndConfirmation = true
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
             }
+        }
+        .navigationDestination(isPresented: $shouldNavigateToMatches) {
+            MatchesView()
         }
         .sheet(isPresented: $showingEventSelection) {
             EventSelectionView(match: match, isHomeTeam: selectedTeamIsHome)
@@ -210,6 +211,18 @@ struct MatchRecordView: View {
         .sheet(isPresented: $showingAddPlayer) {
             AddMatchPlayerView(match: match)
         }
+        .sheet(isPresented: $showEndConfirmation) {
+            ConfirmationView(
+                title: "结束比赛",
+                message: "你确定要结束这场比赛吗？结束后数据将无法修改。",
+                confirmAction: {
+                    endMatch()
+                },
+                cancelAction: {
+                    showEndConfirmation = false
+                }
+            )
+        }
         .alert("需要权限", isPresented: $audioManager.showPermissionAlert) {
             Button("去设置", role: .cancel) {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
@@ -224,6 +237,8 @@ struct MatchRecordView: View {
         }
         .onAppear {
             setupAudioManager()
+            // 当比赛视图出现时，立即发送数据到手表
+            WatchConnectivityManager.shared.sendStartMatchToWatch(match: match)
         }
     }
     
@@ -295,6 +310,9 @@ struct MatchRecordView: View {
         
         // 保存更改
         try? modelContext.save()
+        
+        // 通知手表比赛结束
+        WatchConnectivityManager.shared.sendEndMatchToWatch(matchId: match.id)
         
         // 返回到 MatchesView
         shouldNavigateToMatches = true
