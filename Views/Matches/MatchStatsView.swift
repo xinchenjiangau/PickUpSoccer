@@ -194,7 +194,7 @@ struct MatchEventRow: View {
                 .frame(width: 60, alignment: .leading)
             Text(event.eventType.rawValue)
                 .fontWeight(.bold)
-                .foregroundColor(colorForEventType(event.eventType))
+                .foregroundColor(event.isHomeTeam ? .red : .blue) // ✅ 颜色根据队伍变
                 .frame(width: 50, alignment: .leading)
             if let scorer = event.scorer {
                 Text(scorer.name)

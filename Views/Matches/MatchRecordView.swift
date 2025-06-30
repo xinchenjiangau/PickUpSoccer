@@ -298,13 +298,15 @@ struct MatchRecordView: View {
             }
         }
         
+        updateMatchStats(for: event, in: match)
         modelContext.insert(event)
-        // 添加事件到比赛记录
         match.events.append(event)
-        
-        // 保存更改
         try? modelContext.save()
+
     }
+    
+    
+
     
     private func endMatch() {
         // 更新比赛状态

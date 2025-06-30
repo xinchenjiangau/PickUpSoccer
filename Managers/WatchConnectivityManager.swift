@@ -164,9 +164,11 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
         }
 
 
+        updateMatchStats(for: newEvent, in: match)
         context.insert(newEvent)
         match.events.append(newEvent)
         try? context.save()
+
         print("✅ Saved new event '\(eventType)' from watch.")
         print("收到事件 playerId: \(message["playerId"] ?? "nil")")
         print("本地球员ID列表：", match.playerStats.map { $0.player?.id.uuidString ?? "" })
