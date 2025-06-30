@@ -31,10 +31,16 @@ final class PlayerMatchStats {
 
     /// 单场评分算法，满分10分，基础分6.0
     var score: Double {
-        let goalScore = 3.5 * (1 - exp(-1.0 * Double(goals)))
-        let assistScore = 2.1 * (1 - exp(-0.8 * Double(assists)))
-        let saveScore = 2.2 * (1 - exp(-0.9 * Double(saves)))
-        let rawScore = 5.0 + goalScore + assistScore + saveScore
+        let firstGoalScore = goals > 0 ? 2.4: 0.0
+        let extraGoalScore = goals > 1 ? 1.9 * (1 - exp(-0.95 * Double(goals - 1))) : 0.0
+
+        let firstAssistScore = assists > 0 ? 1.5 : 0.0
+        let extraAssistScore = assists > 1 ? 1.3 * (1 - exp(-0.75 * Double(assists - 1))) : 0.0
+
+        let firstSaveScore = saves > 0 ? 1.3 : 0.0
+        let extraSaveScore = saves > 1 ? 1.0 * (1 - exp(-0.6 * Double(saves - 1))) : 0.0
+
+        let rawScore = 4.0 + firstGoalScore + extraGoalScore + firstAssistScore + extraAssistScore + firstSaveScore + extraSaveScore
         return min(rawScore, 10.0)
     }
 

@@ -147,6 +147,11 @@ struct MatchStatsView: View {
         .background(ThemeColor.background)
         .navigationTitle("比赛数据")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+                for stats in match.playerStats {
+                    print("🎯 评分检查：\(stats.player?.name ?? "未知")：\(stats.score)")
+                }
+            }
     }
 }
 
