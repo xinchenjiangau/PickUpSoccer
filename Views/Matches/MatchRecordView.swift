@@ -2,14 +2,16 @@ import SwiftUI
 import SwiftData
 import AVFoundation
 import Speech
+import WatchConnectivity 
 
 struct MatchRecordView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var coordinator: NavigationCoordinator
     @Bindable var match: Match
     @State private var showingEventSelection = false
     @State private var selectedTeamIsHome = true // 用于标识选中的是主队还是客队
-    @State private var shouldNavigateToMatches = false  // 用于控制返回到 MatchesView
+    // @State private var shouldNavigateToMatches = false  // 用于控制返回到 MatchesView
     @State private var currentTime = Date()
     @StateObject private var audioManager = AudioManager()
     @State private var showingConfirmation = false
@@ -49,125 +51,122 @@ struct MatchRecordView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // 比分区域
-                VStack(spacing: 20) {
-                    // 比赛时间显示
-                    Text(matchDuration)
-                        .font(.custom("DingTalk JinBuTi", size: 20))
-                        .foregroundColor(.black)
-                        .padding(.top, 10)
-                        .onReceive(timer) { _ in
-                            // 只在比赛进行中更新时间
-                            if match.status == .inProgress {
-                                currentTime = Date()
-                            }
+        VStack(spacing: 0) {
+            // 比分区域
+            VStack(spacing: 20) {
+                // 比赛时间显示
+                Text(matchDuration)
+                    .font(.custom("DingTalk JinBuTi", size: 20))
+                    .foregroundColor(.black)
+                    .padding(.top, 10)
+                    .onReceive(timer) { _ in
+                        // 只在比赛进行中更新时间
+                        if match.status == .inProgress {
+                            currentTime = Date()
                         }
-                    
-                    // 添加平均分显示
-                    HStack(spacing: 140) {
-                        Text(String(format: "%.1f", redTeamAverageScore))
-                            .font(.caption)
-                            .foregroundColor(.red)
-                        Text(String(format: "%.1f", blueTeamAverageScore))
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                        }
-                    
-                    // 队伍名称
-                    HStack(spacing: 140) {
-                        Text("红队")
-                            .font(.custom("PingFang MO", size: 16))
-                            .fontWeight(.medium)
-                            .foregroundColor(.black)
-                        
-                        Text("蓝队")
-                            .font(.custom("PingFang MO", size: 16))
-                            .fontWeight(.medium)
-                            .foregroundColor(Color(red: 0.26, green: 0.56, blue: 0.81))
                     }
-                    .padding(.horizontal, 40)
+                
+                // 添加平均分显示
+                HStack(spacing: 140) {
+                    Text(String(format: "%.1f", redTeamAverageScore))
+                        .font(.caption)
+                        .foregroundColor(.red)
+                    Text(String(format: "%.1f", blueTeamAverageScore))
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                    }
+                
+                // 队伍名称
+                HStack(spacing: 140) {
+                    Text("红队")
+                        .font(.custom("PingFang MO", size: 16))
+                        .fontWeight(.medium)
+                        .foregroundColor(.black)
                     
-                    // 比分显示
-                    HStack(spacing: 30) {
-                        // 红队按钮
-                        Button(action: {
-                            selectedTeamIsHome = true
-                            showingEventSelection = true
-                        }) {
-                            Text("\(match.homeScore)")
-                                .font(.custom("Poppins", size: 60))
-                                .fontWeight(.semibold)
-                                .foregroundColor(.black)
-                                .frame(width: 100, height: 100)
-                                .background(
-                                    Circle()
-                                        .fill(Color.red.opacity(0.5))
-                                )
-                        }
-                        
-                        Text("-")
+                    Text("蓝队")
+                        .font(.custom("PingFang MO", size: 16))
+                        .fontWeight(.medium)
+                        .foregroundColor(Color(red: 0.26, green: 0.56, blue: 0.81))
+                }
+                .padding(.horizontal, 40)
+                
+                // 比分显示
+                HStack(spacing: 30) {
+                    // 红队按钮
+                    Button(action: {
+                        selectedTeamIsHome = true
+                        showingEventSelection = true
+                    }) {
+                        Text("\(match.homeScore)")
                             .font(.custom("Poppins", size: 60))
                             .fontWeight(.semibold)
                             .foregroundColor(.black)
-                        
-                        // 蓝队按钮
-                        Button(action: {
-                            selectedTeamIsHome = false
-                            showingEventSelection = true
-                        }) {
-                            Text("\(match.awayScore)")
-                                .font(.custom("Poppins", size: 60))
-                                .fontWeight(.semibold)
-                                .foregroundColor(.black)
-                                .frame(width: 100, height: 100)
-                                .background(
-                                    Circle()
-                                        .fill(Color.blue.opacity(0.5))
-                                )
-                        }
+                            .frame(width: 100, height: 100)
+                            .background(
+                                Circle()
+                                    .fill(Color.red.opacity(0.5))
+                            )
                     }
-                }
-                .padding(.vertical, 20)
-                .background(Color.white)
-                
-                
-                // 时间线标题
-                Text("时间线")
-                    .font(.custom("PingFang MO", size: 24))
-                    .fontWeight(.medium)
-                    .foregroundColor(Color(red: 0.15, green: 0.50, blue: 0.27))
-                    .padding(.vertical, 20)
-                
-                // 时间线视图
-                TimelineView(match: match)
-                    .frame(maxHeight: .infinity)
-                
-                // 添加录音按钮
-                VStack {
-                    Button(action: handleRecordingButton) {
-                        Image(systemName: audioManager.isRecording ? "stop.circle.fill" : "mic.circle.fill")
-                            .font(.system(size: 44))
-                            .foregroundColor(audioManager.isRecording ? .red : .blue)
-                    }
-                    .padding()
                     
-                    if !audioManager.recognizedText.isEmpty {
-                        Text(audioManager.recognizedText)
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                    Text("-")
+                        .font(.custom("Poppins", size: 60))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.black)
+                    
+                    // 蓝队按钮
+                    Button(action: {
+                        selectedTeamIsHome = false
+                        showingEventSelection = true
+                    }) {
+                        Text("\(match.awayScore)")
+                            .font(.custom("Poppins", size: 60))
+                            .fontWeight(.semibold)
+                            .foregroundColor(.black)
+                            .frame(width: 100, height: 100)
+                            .background(
+                                Circle()
+                                    .fill(Color.blue.opacity(0.5))
+                            )
                     }
                 }
-                .padding(.bottom)
             }
+            .padding(.vertical, 20)
+            .background(Color.white)
+            
+            
+            // 时间线标题
+            Text("时间线")
+                .font(.custom("PingFang MO", size: 24))
+                .fontWeight(.medium)
+                .foregroundColor(Color(red: 0.15, green: 0.50, blue: 0.27))
+                .padding(.vertical, 20)
+            
+            // 时间线视图
+            TimelineView(match: match)
+                .frame(maxHeight: .infinity)
+            
+            // 添加录音按钮
+            VStack {
+                Button(action: handleRecordingButton) {
+                    Image(systemName: audioManager.isRecording ? "stop.circle.fill" : "mic.circle.fill")
+                        .font(.system(size: 44))
+                        .foregroundColor(audioManager.isRecording ? .red : .blue)
+                }
+                .padding()
+                
+                if !audioManager.recognizedText.isEmpty {
+                    Text(audioManager.recognizedText)
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+            .padding(.bottom)
         }
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button("返回") {
-                    shouldNavigateToMatches = true
                     dismiss()
                 }
             }
@@ -188,9 +187,9 @@ struct MatchRecordView: View {
                 }
             }
         }
-        .navigationDestination(isPresented: $shouldNavigateToMatches) {
-            MatchesView()
-        }
+        // .navigationDestination(isPresented: $shouldNavigateToMatches) {
+        //     MatchesView()
+        // }
         .sheet(isPresented: $showingEventSelection) {
             EventSelectionView(match: match, isHomeTeam: selectedTeamIsHome)
         }
@@ -216,7 +215,11 @@ struct MatchRecordView: View {
                 title: "结束比赛",
                 message: "你确定要结束这场比赛吗？结束后数据将无法修改。",
                 confirmAction: {
-                    endMatch()
+                    showEndConfirmation = false
+                    // 延迟执行，确保sheet先关闭
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        endMatch()
+                    }
                 },
                 cancelAction: {
                     showEndConfirmation = false
@@ -237,8 +240,15 @@ struct MatchRecordView: View {
         }
         .onAppear {
             setupAudioManager()
-            // 当比赛视图出现时，立即发送数据到手表
+            // 触发一次视图刷新，确保toolbar渲染
+            _ = match.id
             WatchConnectivityManager.shared.sendStartMatchToWatch(match: match)
+        }
+        .onChange(of: match.status) { oldStatus, newStatus in
+            if newStatus == .finished {
+                coordinator.shouldDismissParticipationSheet = true
+                dismiss()
+            }
         }
     }
     
@@ -288,6 +298,7 @@ struct MatchRecordView: View {
             }
         }
         
+        modelContext.insert(event)
         // 添加事件到比赛记录
         match.events.append(event)
         
@@ -296,26 +307,28 @@ struct MatchRecordView: View {
     }
     
     private func endMatch() {
-        // 停止计时
-        timer.upstream.connect().cancel()
-        
-        // 更新比赛状态为已结束
+        // 更新比赛状态
         match.status = .finished
         
-        // 计算并保存比赛时长（只保存分钟数）
-        match.duration = Int(currentTime.timeIntervalSince(match.matchDate) / 60)
+        // 发送结束比赛消息到手表端
+        let message: [String: Any] = [
+            "command": "matchEndedFromPhone",
+            "matchId": match.id.uuidString,
+            "homeScore": match.homeScore,
+            "awayScore": match.awayScore
+        ]
         
-        // 更新比赛统计数据
-        match.updateMatchStats()
+        WCSession.default.sendMessage(message, replyHandler: nil) { error in
+            print("❌ 手表端发送 matchEnded 消息失败: \(error.localizedDescription)")
+        }
+
+
         
-        // 保存更改
+        // 通知 MatchesView 关闭 sheet
+        coordinator.shouldDismissParticipationSheet = true
+
+        // 保存并返回
         try? modelContext.save()
-        
-        // 通知手表比赛结束
-        WatchConnectivityManager.shared.sendEndMatchToWatch(matchId: match.id)
-        
-        // 返回到 MatchesView
-        shouldNavigateToMatches = true
         dismiss()
     }
 }

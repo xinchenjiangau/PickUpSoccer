@@ -4,6 +4,7 @@ import SwiftData
 struct MatchesView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Match.matchDate, order: .reverse) private var matches: [Match]
+    @StateObject private var coordinator = NavigationCoordinator()
     @State private var showingParticipationSelect = false // 状态变量
     
     // 按状态分组的比赛
@@ -17,7 +18,7 @@ struct MatchesView: View {
     }
     
     var body: some View {
-        NavigationView {  // 改用 NavigationView
+        NavigationStack {
             List {
                 ForEach(matchesByStatus, id: \.status) { section in
                     Section(header: Text(section.status.rawValue)) {
@@ -62,6 +63,13 @@ struct MatchesView: View {
             }
             .sheet(isPresented: $showingParticipationSelect) {
                 ParticipationSelectView()
+                    .environmentObject(coordinator)
+            }
+        }
+        .onChange(of: coordinator.shouldDismissParticipationSheet) { _, newValue in
+            if newValue {
+                showingParticipationSelect = false
+                coordinator.shouldDismissParticipationSheet = false // 重置
             }
         }
     }

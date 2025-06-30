@@ -7,9 +7,10 @@ struct ParticipationSelectView: View {
     @State private var selectedPlayers: Set<Player> = []
     @State private var navigateToTeamSelect = false // 状态变量
     @Environment(\.presentationMode) var presentationMode
+    @EnvironmentObject var coordinator: NavigationCoordinator
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List(players) { player in
                 MultipleSelectionRow(title: player.name, isSelected: selectedPlayers.contains(player)) {
                     if selectedPlayers.contains(player) {
@@ -27,18 +28,17 @@ struct ParticipationSelectView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                        NavigationLink(destination: TeamSelectView(selectedPlayers: Array(selectedPlayers)), isActive: $navigateToTeamSelect) {
-
-                        Button("完成") {
-                            navigateToTeamSelect = true
-                        }
+                    NavigationLink(
+                        destination: TeamSelectView(selectedPlayers: Array(selectedPlayers)).environmentObject(coordinator)
+                    ) {
+                        Text("完成")
                     }
+                    .disabled(selectedPlayers.isEmpty) // 可选
                 }
             }
-            .onChange(of: selectedPlayers) { oldValue, newValue in
-                // 处理选择状态变化
-            }
-            
+        }
+        .onChange(of: selectedPlayers) { oldValue, newValue in
+            // 处理选择状态变化
         }
     }
     

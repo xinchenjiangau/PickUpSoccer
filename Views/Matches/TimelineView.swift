@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct TimelineView: View {
-    let match: Match
+    @Bindable var match: Match
+    //let match: Match
     
     // 定义UI常量
     private let eventUnitHeight: CGFloat = 50  // 事件卡片固定高度
@@ -159,7 +160,7 @@ struct EventCard: View {
         case .goal:
             return "\(event.scorer?.name ?? "") 进球！"
         case .save:
-            return "\(event.scorer?.name ?? "") 扑救"
+            return "\(event.goalkeeper?.name ?? "") 扑救"
         case .assist:
             return "\(event.scorer?.name ?? "") 助攻"
         case .foul:

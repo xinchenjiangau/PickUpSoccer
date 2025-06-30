@@ -65,8 +65,11 @@ struct AddMatchPlayerView: View {
         
         // 保存更改
         try? modelContext.save()
-        
+        WatchConnectivityManager.shared.syncPlayerToWatchIfNeeded(player: player, match: match)
+
         // 关闭视图
         dismiss()
+        
+
     }
 } 

@@ -11,6 +11,7 @@ struct TeamSelectView: View {
     @State private var currentMatch: Match? // 存储当前创建的比赛
     @State private var redTeamAverageScore: Double = 0
     @State private var blueTeamAverageScore: Double = 0
+    @EnvironmentObject var coordinator: NavigationCoordinator
     
     var redTeam: [Player] {
         selectedPlayers.filter { playerColors[$0.id] == .red }
@@ -49,46 +50,43 @@ struct TeamSelectView: View {
                     .foregroundColor(.blue)
             }
             .padding(.horizontal)
-        List {
-            ForEach(selectedPlayers, id: \.id) { player in
-                Button(action: {
-                    togglePlayerColor(player)
-                }) {
-                    HStack {
-                        Text(player.name)
-                            .foregroundColor(playerColors[player.id] ?? .gray) // 默认灰色
+            List {
+                ForEach(selectedPlayers, id: \.id) { player in
+                    Button(action: {
+                        togglePlayerColor(player)
+                    }) {
+                        HStack {
+                            Text(player.name)
+                                .foregroundColor(playerColors[player.id] ?? .gray) // 默认灰色
+                        }
                     }
                 }
+            }
+            // 跳转到比赛记录页面
+            NavigationLink(
+                destination: currentMatch.map { MatchRecordView(match: $0).environmentObject(coordinator) },
+                isActive: $showingMatchRecord
+            ) {
+                EmptyView()
             }
         }
         .navigationTitle("选择球队")
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
-                // 添加随机分队按钮
                 Button(action: randomizeTeams) {
                     Image(systemName: "shuffle.circle")
                 }
-                
                 Button("开始比赛") {
                     createAndStartMatch()
                 }
-                    
-                    // 新增评分均衡分队按钮
-                    Button("评分均衡分队") {
-                        assignBalancedTeams()
-                    }
+                Button("评分均衡分队") {
+                    assignBalancedTeams()
+                }
             }
         }
-        
         .onChange(of: showingMatchRecord) { oldValue, newValue in
             if !newValue {
                 dismiss() // 当 MatchRecordView 关闭时，返回到 MatchesView
-            }
-        }
-        .fullScreenCover(isPresented: $showingMatchRecord) {
-            if let match = currentMatch {
-                MatchRecordView(match: match)
-                }
             }
         }
     }

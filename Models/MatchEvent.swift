@@ -11,6 +11,8 @@ final class MatchEvent {
     @Relationship var match: Match?
     @Relationship var scorer: Player? // 进球者
     @Relationship var assistant: Player? // 助攻者
+    @Relationship var goalkeeper: Player?
+
     
     init(
         id: UUID = UUID(),
@@ -19,7 +21,8 @@ final class MatchEvent {
         isHomeTeam: Bool,
          match: Match? = nil,
          scorer: Player? = nil,
-        assistant: Player? = nil
+        assistant: Player? = nil,
+        goalkeeper: Player? = nil
     ) {
         self.id = id
         self.eventType = eventType
@@ -28,5 +31,6 @@ final class MatchEvent {
         self.match = match
         self.scorer = scorer
         self.assistant = assistant
+        self.goalkeeper = goalkeeper
     }
 } 

@@ -35,10 +35,11 @@ struct PickUpSoccerApp: App {
         WatchConnectivityManager.shared.configure(with: sharedModelContainer)
         
     }
-    
+    @StateObject private var coordinator = NavigationCoordinator()
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environmentObject(coordinator)
         }
         .modelContainer(sharedModelContainer)
     }
