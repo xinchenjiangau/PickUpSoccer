@@ -8,7 +8,8 @@ final class MatchEvent {
     var timestamp: Date
     var isHomeTeam: Bool = false
     
-    @Relationship var match: Match?
+    //@Relationship var match: Match?
+    @Relationship(inverse: \Match.events) var match: Match?
     @Relationship var scorer: Player? // 进球者
     @Relationship var assistant: Player? // 助攻者
     @Relationship var goalkeeper: Player?

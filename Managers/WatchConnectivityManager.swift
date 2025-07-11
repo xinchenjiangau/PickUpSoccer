@@ -129,52 +129,71 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
     private func handleNewEvent(from message: [String: Any], context: ModelContext) {
         guard let matchIdStr = message["matchId"] as? String,
               let matchId = UUID(uuidString: matchIdStr),
-              let eventType = message["eventType"] as? String else {
+              let eventTypeStr = message["eventType"] as? String else {
             return
         }
-        
+
         let matchPredicate = #Predicate<Match> { $0.id == matchId }
         guard let match = (try? context.fetch(FetchDescriptor(predicate: matchPredicate)))?.first else { return }
 
-        let translatedType = translatedEventType(from: eventType)
+        let translatedType = translatedEventType(from: eventTypeStr)
         let newEvent = MatchEvent(eventType: translatedType, timestamp: Date(), isHomeTeam: false)
 
+        if translatedType == .save {
+            // 优先处理 goalkeeperId
+            if let goalkeeperIdStr = message["goalkeeperId"] as? String,
+               let goalkeeperId = UUID(uuidString: goalkeeperIdStr),
+               let goalkeeperStats = match.playerStats.first(where: { $0.player?.id == goalkeeperId }) {
+                newEvent.goalkeeper = goalkeeperStats.player
+                goalkeeperStats.saves += 1
+                newEvent.isHomeTeam = goalkeeperStats.isHomeTeam
+            }
+        } else {
+            // 处理 scorer
+            if let scorerIdStr = message["playerId"] as? String,
+               let scorerId = UUID(uuidString: scorerIdStr),
+               let scorerStats = match.playerStats.first(where: { $0.player?.id == scorerId }) {
+                newEvent.scorer = scorerStats.player
+                newEvent.isHomeTeam = scorerStats.isHomeTeam
+                scorerStats.goals += 1
+            }
 
-        // scorerId 字段应为 playerId
-        if let scorerIdStr = message["playerId"] as? String,
-           let scorerId = UUID(uuidString: scorerIdStr),
-           let scorerStats = match.playerStats.first(where: { $0.player?.id == scorerId }) {
-            newEvent.scorer = scorerStats.player
-            newEvent.isHomeTeam = scorerStats.isHomeTeam
-            scorerStats.goals += 1
+            // 助攻
+            if let assistantIdStr = message["assistantId"] as? String,
+               let assistantId = UUID(uuidString: assistantIdStr),
+               let assistantStats = match.playerStats.first(where: { $0.player?.id == assistantId }) {
+                newEvent.assistant = assistantStats.player
+                assistantStats.assists += 1
+            }
         }
-
-        if let assistantIdStr = message["assistantId"] as? String, let assistantId = UUID(uuidString: assistantIdStr),
-           let assistantStats = match.playerStats.first(where: { $0.player?.id == assistantId }) {
-            newEvent.assistant = assistantStats.player
-            assistantStats.assists += 1
-        }
-
-        if let goalkeeperIdStr = message["goalkeeperId"] as? String,
-        let goalkeeperId = UUID(uuidString: goalkeeperIdStr),
-        let goalkeeperStats = match.playerStats.first(where: { $0.player?.id == goalkeeperId }) {
-            newEvent.goalkeeper = goalkeeperStats.player
-            goalkeeperStats.saves += 1
-            newEvent.isHomeTeam = goalkeeperStats.isHomeTeam // 设置归属方
-        }
-
 
         updateMatchStats(for: newEvent, in: match)
+        newEvent.match = match
         context.insert(newEvent)
-        match.events.append(newEvent)
+        //match.events.append(newEvent)
         try? context.save()
 
-        print("✅ Saved new event '\(eventType)' from watch.")
-        print("收到事件 playerId: \(message["playerId"] ?? "nil")")
-        print("本地球员ID列表：", match.playerStats.map { $0.player?.id.uuidString ?? "" })
-        print("收到 assistantId: \(message["assistantId"] ?? "nil")")
-        print("本地球员ID列表: \(match.playerStats.map { $0.player?.id.uuidString ?? "nil" })")
+        print("✅ 当前 match.id: \(match.id.uuidString)")
+        print("🧩 scorerId: \(newEvent.scorer?.id.uuidString ?? "nil")")
+        print("🧩 assistantId: \(newEvent.assistant?.id.uuidString ?? "nil")")
+        print("🧩 goalkeeperId: \(newEvent.goalkeeper?.id.uuidString ?? "nil")")
+
+        for e in match.events {
+            print("📄 已有事件: \(e.eventType.rawValue), scorerId: \(e.scorer?.id.uuidString ?? "nil")")
+        }
+
+        for e in match.events {
+            print("📄 事件: \(e.eventType.rawValue), scorerId: \(e.scorer?.id.uuidString ?? "nil")")
+        }
+        print("✅ match.events.count = \(match.events.count)")
+        print("✅ newEvent.match id = \(newEvent.match?.id.uuidString ?? "nil")")
+
+
+
+
+
     }
+
     
     private func translatedEventType(from raw: String) -> EventType {
         switch raw {
@@ -193,11 +212,10 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
     private func handleMatchEnded(from message: [String: Any], context: ModelContext) {
         guard let matchIdStr = message["matchId"] as? String,
               let matchId = UUID(uuidString: matchIdStr) else { return }
-        
+
         let matchPredicate = #Predicate<Match> { $0.id == matchId }
         guard let match = (try? context.fetch(FetchDescriptor(predicate: matchPredicate)))?.first else { return }
-        
-        // 同步比分
+
         if let homeScore = message["homeScore"] as? Int {
             match.homeScore = homeScore
         }
@@ -205,14 +223,82 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
             match.awayScore = awayScore
         }
 
+        // ✅ 彻底删除旧事件（从数据库中删除，而不仅仅是从 match.events 中移除）
+        let allEvents = try? context.fetch(FetchDescriptor<MatchEvent>())
+        if let eventsToDelete = allEvents?.filter({ $0.match?.id == match.id }) {
+            for e in eventsToDelete {
+                context.delete(e)
+            }
+        }
+        match.events = []
+        
+        // 清空 player stats 的所有历史分
+        for stats in match.playerStats {
+            stats.goals = 0
+            stats.assists = 0
+            stats.saves = 0
+        }
+
+        // ✅ 重建新事件
+        if let rawEvents = message["events"] as? [[String: Any]] {
+            for raw in rawEvents {
+                guard
+                    let typeStr = raw["eventType"] as? String,
+                    let eventType = EventType(rawValue: typeStr),
+                    let timestamp = raw["timestamp"] as? Double,
+                    let playerIdStr = raw["playerId"] as? String,
+                    let playerId = UUID(uuidString: playerIdStr)
+                else { continue }
+
+                let event = MatchEvent(
+                    eventType: eventType,
+                    timestamp: Date(timeIntervalSince1970: timestamp),
+                    isHomeTeam: raw["isHomeTeam"] as? Bool ?? false
+                )
+                event.match = match
+
+                if let scorerStats = match.playerStats.first(where: { $0.player?.id == playerId }) {
+                    event.scorer = scorerStats.player
+                }
+
+                if let assistantStr = raw["assistantId"] as? String,
+                   let assistantId = UUID(uuidString: assistantStr),
+                   let assistantStats = match.playerStats.first(where: { $0.player?.id == assistantId }) {
+                    event.assistant = assistantStats.player
+                }
+                event.match = match
+                context.insert(event) // SwiftData 自动建立关系
+                match.events.append(event)
+            }
+        }
+
         match.status = .finished
         match.updateMatchStats()
         try? context.save()
-        print("✅ Match ended from watch and stats updated.")
-        print("🏁 handleMatchEnded 被调用，比分：\(match.homeScore)-\(match.awayScore)")
-        // 通知 UI 层刷新
+
+        print("✅ 完整结束：事件数量 = \(match.events.count)")
         objectWillChange.send()
+    
+
+
+        print("📦 当前 match.id = \(match.id.uuidString)")
+        print("📦 match.events.count = \(match.events.count)")
+        for e in match.events {
+            print("📝 事件：\(e.eventType.rawValue) 时间：\(e.timestamp)")
+        }
+        if let allEvents = try? context.fetch(FetchDescriptor<MatchEvent>()) {
+            print("📦 所有 MatchEvent 数量 = \(allEvents.count)")
+            for e in allEvents {
+                print("📄 事件ID: \(e.id.uuidString), match.id = \(e.match?.id.uuidString ?? "nil"), 类型: \(e.eventType.rawValue)")
+            }
+        }
+
+
     }
+
+
+
+
 
     private func handleScoreUpdate(from message: [String: Any]) {
         guard let matchIdStr = message["matchId"] as? String,

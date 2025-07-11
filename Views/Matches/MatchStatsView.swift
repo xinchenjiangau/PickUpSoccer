@@ -148,10 +148,18 @@ struct MatchStatsView: View {
         .navigationTitle("比赛数据")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-                for stats in match.playerStats {
-                    print("🎯 评分检查：\(stats.player?.name ?? "未知")：\(stats.score)")
-                }
+            for stats in match.playerStats {
+                print("🎯 评分检查：\(stats.player?.name ?? "未知")：\(stats.score)")
             }
+        }
+        .onAppear {
+            print("⚠️ 总比分：\(match.homeScore + match.awayScore)")
+            print("📦 实际事件数：\(match.events.count)")
+            for event in match.events {
+                print("📝 \(event.eventType.rawValue) - \(event.timestamp) - \(event.scorer?.name ?? "无")")
+            }
+        }
+
     }
 }
 
