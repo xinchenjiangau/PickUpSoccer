@@ -161,8 +161,8 @@ struct EventCard: View {
             return "\(event.scorer?.name ?? "") 进球！"
         case .save:
             return "\(event.goalkeeper?.name ?? "") 扑救"
-        case .assist:
-            return "\(event.scorer?.name ?? "") 助攻"
+//        case .assist:
+//            return "\(event.scorer?.name ?? "") 助攻"
         case .foul:
             return "\(event.scorer?.name ?? "") 犯规"
         case .yellowCard:

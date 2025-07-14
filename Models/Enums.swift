@@ -16,7 +16,7 @@ enum PlayerPosition: String, Codable, CaseIterable {
 
 enum EventType: String, Codable {
     case goal = "进球"
-    case assist = "助攻"
+//    case assist = "助攻"
     case foul = "犯规"
     case save = "扑救"
     case yellowCard = "黄牌"

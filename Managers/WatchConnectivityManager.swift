@@ -239,7 +239,7 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
     private func translatedEventType(from raw: String) -> EventType {
         switch raw {
         case "goal": return .goal
-        case "assist": return .assist
+        
         case "foul": return .foul
         case "save": return .save
         case "yellowCard": return .yellowCard

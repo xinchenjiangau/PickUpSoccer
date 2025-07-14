@@ -229,7 +229,7 @@ struct MatchEventRow: View {
     func colorForEventType(_ type: EventType) -> Color {
         switch type {
         case .goal: return .red
-        case .assist: return .orange
+        //case .assist: return .orange
         case .save: return .blue
         case .foul: return .gray
         case .yellowCard: return .yellow

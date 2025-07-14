@@ -344,8 +344,7 @@ struct TimelineEventView: View {
             } else {
                 return "\(event.scorer?.name ?? "") Goal!"
             }
-        case .assist:
-            return "\(event.scorer?.name ?? "") Assist"
+        
         case .foul:
             return "\(event.scorer?.name ?? "") Foul"
         case .save:
@@ -361,8 +360,7 @@ struct TimelineEventView: View {
         switch event.eventType {
         case .goal:
             return .yellow
-        case .assist:
-            return .green
+        
         case .foul:
             return .orange
         case .save:
