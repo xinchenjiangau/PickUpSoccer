@@ -146,79 +146,94 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
 
     // MARK: - Message Handlers
 
+    // In xinchenjiangau/pickupsoccer/PickUpSoccer-46a3117d7232204197ff70efc5a54e3337afc15c/Managers/WatchConnectivityManager.swift
+
     private func handleNewEvent(from message: [String: Any], context: ModelContext) {
+        // 1. 验证收到的消息是否完整
         guard let matchIdStr = message["matchId"] as? String,
               let matchId = UUID(uuidString: matchIdStr),
               let eventTypeStr = message["eventType"] as? String else {
+            print("❌ [WatchKit] 收到不完整的新事件数据。")
             return
         }
 
+        // 2. 根据ID查找对应的比赛
         let matchPredicate = #Predicate<Match> { $0.id == matchId }
-        guard let match = (try? context.fetch(FetchDescriptor(predicate: matchPredicate)))?.first else { return }
+        guard let match = (try? context.fetch(FetchDescriptor(predicate: matchPredicate)))?.first else {
+            print("❌ [WatchKit] 无法找到比赛，ID: \(matchIdStr)")
+            return
+        }
 
-        let translatedType = translatedEventType(from: eventTypeStr)
-        let newEvent = MatchEvent(eventType: translatedType, timestamp: Date(), isHomeTeam: false)
+        // 3. 将字符串类型的事件转换为枚举类型
+        let eventType = translatedEventType(from: eventTypeStr)
+        let newEvent = MatchEvent(eventType: eventType, timestamp: Date(), isHomeTeam: false, match: match)
 
-        // WatchConnectivityManager.swift -> handleNewEvent method
-        if translatedType == .save {
-            if let goalkeeperIdStr = message["goalkeeperId"] as? String,
-               let goalkeeperId = UUID(uuidString: goalkeeperIdStr),
-               let goalkeeperStats = match.playerStats.first(where: { $0.player?.id == goalkeeperId }) {
-                newEvent.goalkeeper = goalkeeperStats.player // ✅ Set goalkeeper here
-                goalkeeperStats.saves += 1
-                newEvent.isHomeTeam = goalkeeperStats.isHomeTeam
-            }
-        } else {
-            // Handle scorer
+        // 4. 根据事件类型，分别处理数据
+        if eventType == .goal {
+            // --- 处理进球者 ---
             if let scorerIdStr = message["playerId"] as? String,
                let scorerId = UUID(uuidString: scorerIdStr),
                let scorerStats = match.playerStats.first(where: { $0.player?.id == scorerId }) {
+
                 newEvent.scorer = scorerStats.player
+                // [修复] 关键修复：正确设置事件属于主队还是客队
                 newEvent.isHomeTeam = scorerStats.isHomeTeam
                 scorerStats.goals += 1
+
+                // [修复] 实时更新比赛比分
+                if scorerStats.isHomeTeam {
+                    match.homeScore += 1
+                } else {
+                    match.awayScore += 1
+                }
             }
 
-            // Assist
+            // --- 处理助攻者 ---
             if let assistantIdStr = message["assistantId"] as? String,
                let assistantId = UUID(uuidString: assistantIdStr),
                let assistantStats = match.playerStats.first(where: { $0.player?.id == assistantId }) {
                 newEvent.assistant = assistantStats.player
+                // [修复] 增加助攻者的助攻统计
                 assistantStats.assists += 1
             }
-        }
 
-        // Set event ownership
-        newEvent.match = match
-        context.insert(newEvent)
-        // match.events.append(newEvent) // ⚠️ Removed: SwiftData handles inverse relationships automatically
+        } else if eventType == .save {
+            // --- 处理扑救者 ---
+            // 优先使用 "goalkeeperId" 字段
+            if let goalkeeperIdStr = message["goalkeeperId"] as? String,
+               let goalkeeperId = UUID(uuidString: goalkeeperIdStr),
+               let goalkeeperStats = match.playerStats.first(where: { $0.player?.id == goalkeeperId }) {
 
-        // ✅ Update score
-        if newEvent.eventType == .goal {
-            if newEvent.isHomeTeam {
-                match.homeScore += 1
-            } else {
-                match.awayScore += 1
+                newEvent.goalkeeper = goalkeeperStats.player
+                // [修复] 正确设置事件属于主队还是客队
+                newEvent.isHomeTeam = goalkeeperStats.isHomeTeam
+                // [修复] 增加扑救者的扑救统计
+                goalkeeperStats.saves += 1
+                
+            // 如果没有 "goalkeeperId"，则尝试使用 "playerId" 作为备用
+            } else if let playerIdStr = message["playerId"] as? String,
+                      let playerId = UUID(uuidString: playerIdStr),
+                      let playerStats = match.playerStats.first(where: { $0.player?.id == playerId }) {
+
+                // 在扑救事件中，将扑救者信息存入goalkeeper字段
+                newEvent.goalkeeper = playerStats.player
+                newEvent.isHomeTeam = playerStats.isHomeTeam
+                playerStats.saves += 1
             }
         }
 
-        // ✅ Player stats (goals, assists, saves) are already updated above
+        // 5. 插入新事件并保存
+        context.insert(newEvent)
+        //match.events.append(newEvent)
 
-        try? context.save()
-
-        print("✅ Current match.id: \(match.id.uuidString)")
-        print("🧩 scorerId: \(newEvent.scorer?.id.uuidString ?? "nil")")
-        print("🧩 assistantId: \(newEvent.assistant?.id.uuidString ?? "nil")")
-        print("🧩 goalkeeperId: \(newEvent.goalkeeper?.id.uuidString ?? "nil")")
-
-        for e in match.events {
-            print("📄 Existing event: \(e.eventType.rawValue), scorerId: \(e.scorer?.id.uuidString ?? "nil")")
+        do {
+            try context.save()
+            print("✅ [WatchKit] 已成功保存事件: \(eventType.rawValue)。比赛 \(match.id) 现在有 \(match.events.count) 个事件。")
+        } catch {
+            print("❌ [WatchKit] 保存上下文时出错: \(error)")
+            // 如果保存失败，打印出更详细的错误
+            print("Error details: \((error as NSError).userInfo)")
         }
-
-        for e in match.events {
-            print("📄 Event: \(e.eventType.rawValue), scorerId: \(e.scorer?.id.uuidString ?? "nil")")
-        }
-        print("✅ match.events.count = \(match.events.count)")
-        print("✅ newEvent.match id = \(newEvent.match?.id.uuidString ?? "nil")")
     }
 
     private func translatedEventType(from raw: String) -> EventType {
@@ -361,6 +376,44 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
         WCSession.default.sendMessage(payload, replyHandler: nil) { error in
             print("❌ Failed to sync new player: \(error.localizedDescription)")
         }
+    }
+    
+    // In xinchenjiangau/pickupsoccer/PickUpSoccer-46a3117d7232204197ff70efc5a54e3337afc15c/Managers/WatchConnectivityManager.swift
+
+    /// 将手机端创建的单个比赛事件实时同步到手表。
+    func sendEventToWatch(_ event: MatchEvent, matchId: UUID) {
+        guard let session = session, session.isReachable else {
+            print("❌ [WatchKit] WCSession 不可达，无法发送事件。")
+            return
+        }
+
+        var payload: [String: Any] = [
+            "command": "newEvent", // 复用手表端已有的 "newEvent" 命令
+            "matchId": matchId.uuidString,
+            "eventType": event.eventType.rawValue,
+            "isHomeTeam": event.isHomeTeam,
+            "timestamp": event.timestamp.timeIntervalSince1970
+        ]
+
+        // 根据事件类型，添加不同的球员ID
+        switch event.eventType {
+        case .goal:
+            payload["playerId"] = event.scorer?.id.uuidString
+            if let assistantId = event.assistant?.id.uuidString {
+                payload["assistantId"] = assistantId
+            }
+        case .save:
+            // 对于扑救事件，我们将扑救者ID放在 "goalkeeperId" 字段
+            payload["goalkeeperId"] = event.goalkeeper?.id.uuidString
+        default:
+            // 为其他未来可能出现的事件类型准备
+            payload["playerId"] = event.scorer?.id.uuidString
+        }
+
+        session.sendMessage(payload, replyHandler: nil) { error in
+            print("❌ [WatchKit] 发送新事件到手表失败: \(error.localizedDescription)")
+        }
+        print("✅ [WatchKit] 成功发送事件到手表: \(event.eventType.rawValue)")
     }
     
     // ✅ New: Receive transferUserInfo message

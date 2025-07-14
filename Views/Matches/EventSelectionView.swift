@@ -156,6 +156,8 @@ struct EventSelectionView: View {
 
         do {
             try modelContext.save()
+            // [新增] 在事件保存成功后，调用同步函数
+            WatchConnectivityManager.shared.sendEventToWatch(event, matchId: match.id)
         } catch {
             print("保存数据失败: \(error.localizedDescription)")
         }
@@ -169,8 +171,9 @@ struct EventSelectionView: View {
             timestamp: Date(),
             isHomeTeam: isHomeTeam,
             match: match,
-            scorer: player,
-            assistant: nil
+            scorer: nil, // [修改] 扑救事件不应该使用 scorer
+            assistant: nil,
+            goalkeeper: player // [修改] 使用 goalkeeper 字段记录扑救者
         )
         
         // 更新球员统计
@@ -181,6 +184,8 @@ struct EventSelectionView: View {
         match.events.append(event)
         do {
             try modelContext.save()
+            // [新增] 在事件保存成功后，调用同步函数
+            WatchConnectivityManager.shared.sendEventToWatch(event, matchId: match.id)
         } catch {
             print("保存数据失败: \(error.localizedDescription)")
         }

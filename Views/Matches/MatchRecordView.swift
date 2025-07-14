@@ -300,8 +300,14 @@ struct MatchRecordView: View {
         }
         
         modelContext.insert(event)
-        // match.events.append(event) // Removed: SwiftData handles inverse relationships automatically
-        try? modelContext.save()
+        match.events.append(event) // Removed: SwiftData handles inverse relationships automatically
+        do {
+            try modelContext.save()
+            // [新增] 在语音事件保存成功后，调用同步函数
+            WatchConnectivityManager.shared.sendEventToWatch(event, matchId: match.id)
+        } catch {
+            print("保存语音确认的事件失败: \(error)")
+        }
     }
     
     private func endMatch() {
