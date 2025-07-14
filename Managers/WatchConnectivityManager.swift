@@ -121,6 +121,8 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
                 }
             }
         }
+        
+
     }
 
 
@@ -170,7 +172,7 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
         updateMatchStats(for: newEvent, in: match)
         newEvent.match = match
         context.insert(newEvent)
-        //match.events.append(newEvent)
+        match.events.append(newEvent)
         try? context.save()
 
         print("✅ 当前 match.id: \(match.id.uuidString)")
@@ -298,8 +300,6 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
 
 
 
-
-
     private func handleScoreUpdate(from message: [String: Any]) {
         guard let matchIdStr = message["matchId"] as? String,
               let matchId = UUID(uuidString: matchIdStr),
@@ -339,6 +339,25 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
             print("❌ 同步新球员失败：\(error.localizedDescription)")
         }
     }
+    
+    // ✅ 新增：接收 transferUserInfo 消息
+    nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any] = [:]) {
+        Task { @MainActor in
+            await handleIncomingBackupEvent(userInfo)
+        }
+    }
+
+    // ✅ 新增：处理 transferUserInfo 的逻辑
+    func handleIncomingBackupEvent(_ message: [String: Any]) async {
+        guard let command = message["command"] as? String, command == "newEventBackup" else { return }
+
+        print("📦 收到 transferUserInfo 事件备份: \(message)")
+
+        await MainActor.run {
+            self.session(WCSession.default, didReceiveMessage: message)
+        }
+    }
+
 
 
 
