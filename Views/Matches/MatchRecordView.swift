@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 import AVFoundation
 import Speech
-import WatchConnectivity 
+import WatchConnectivity
 
 struct MatchRecordView: View {
     @Environment(\.modelContext) private var modelContext
@@ -10,8 +10,8 @@ struct MatchRecordView: View {
     @EnvironmentObject var coordinator: NavigationCoordinator
     @Bindable var match: Match
     @State private var showingEventSelection = false
-    @State private var selectedTeamIsHome = true // 用于标识选中的是主队还是客队
-    // @State private var shouldNavigateToMatches = false  // 用于控制返回到 MatchesView
+    @State private var selectedTeamIsHome = true // Used to identify whether the home team or away team is selected
+    // @State private var shouldNavigateToMatches = false  // Used to control navigation back to MatchesView
     @State private var currentTime = Date()
     @StateObject private var audioManager = AudioManager()
     @State private var showingConfirmation = false
@@ -36,14 +36,14 @@ struct MatchRecordView: View {
         return String(format: "%02d:%02d", minutes, seconds)
     }
     
-    // 计算红队平均分
+    // Calculate red team average score
     var redTeamAverageScore: Double {
         let redTeamStats = match.playerStats.filter { $0.isHomeTeam }
         guard !redTeamStats.isEmpty else { return 0 }
         return redTeamStats.reduce(0.0) { $0 + $1.score } / Double(redTeamStats.count)
     }
     
-    // 计算蓝队平均分
+    // Calculate blue team average score
     var blueTeamAverageScore: Double {
         let blueTeamStats = match.playerStats.filter { !$0.isHomeTeam }
         guard !blueTeamStats.isEmpty else { return 0 }
@@ -52,21 +52,21 @@ struct MatchRecordView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // 比分区域
+            // Score Area
             VStack(spacing: 20) {
-                // 比赛时间显示
+                // Match time display
                 Text(matchDuration)
                     .font(.custom("DingTalk JinBuTi", size: 20))
                     .foregroundColor(.black)
                     .padding(.top, 10)
                     .onReceive(timer) { _ in
-                        // 只在比赛进行中更新时间
+                        // Only update time if match is in progress
                         if match.status == .inProgress {
                             currentTime = Date()
                         }
                     }
                 
-                // 添加平均分显示
+                // Add average score display
                 HStack(spacing: 140) {
                     Text(String(format: "%.1f", redTeamAverageScore))
                         .font(.caption)
@@ -76,23 +76,23 @@ struct MatchRecordView: View {
                         .foregroundColor(.blue)
                     }
                 
-                // 队伍名称
+                // Team names
                 HStack(spacing: 140) {
-                    Text("红队")
+                    Text("Red Team")
                         .font(.custom("PingFang MO", size: 16))
                         .fontWeight(.medium)
                         .foregroundColor(.black)
                     
-                    Text("蓝队")
+                    Text("Blue Team")
                         .font(.custom("PingFang MO", size: 16))
                         .fontWeight(.medium)
                         .foregroundColor(Color(red: 0.26, green: 0.56, blue: 0.81))
                 }
                 .padding(.horizontal, 40)
                 
-                // 比分显示
+                // Score display
                 HStack(spacing: 30) {
-                    // 红队按钮
+                    // Red team button
                     Button(action: {
                         selectedTeamIsHome = true
                         showingEventSelection = true
@@ -113,7 +113,7 @@ struct MatchRecordView: View {
                         .fontWeight(.semibold)
                         .foregroundColor(.black)
                     
-                    // 蓝队按钮
+                    // Blue team button
                     Button(action: {
                         selectedTeamIsHome = false
                         showingEventSelection = true
@@ -134,18 +134,18 @@ struct MatchRecordView: View {
             .background(Color.white)
             
             
-            // 时间线标题
-            Text("时间线")
+            // Timeline Title
+            Text("Timeline")
                 .font(.custom("PingFang MO", size: 24))
                 .fontWeight(.medium)
                 .foregroundColor(Color(red: 0.15, green: 0.50, blue: 0.27))
                 .padding(.vertical, 20)
             
-            // 时间线视图
+            // Timeline View
             TimelineView(match: match)
                 .frame(maxHeight: .infinity)
             
-            // 添加录音按钮
+            // Add recording button
             VStack {
                 Button(action: handleRecordingButton) {
                     Image(systemName: audioManager.isRecording ? "stop.circle.fill" : "mic.circle.fill")
@@ -166,7 +166,7 @@ struct MatchRecordView: View {
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
-                Button("返回") {
+                Button("Back") {
                     dismiss()
                 }
             }
@@ -176,10 +176,10 @@ struct MatchRecordView: View {
                     Button(action: {
                         showingAddPlayer = true
                     }) {
-                        Label("添加球员", systemImage: "person.badge.plus")
+                        Label("Add Player", systemImage: "person.badge.plus")
                     }
                     
-                    Button("结束比赛") {
+                    Button("End Match") {
                         showEndConfirmation = true
                     }
                 } label: {
@@ -212,11 +212,11 @@ struct MatchRecordView: View {
         }
         .sheet(isPresented: $showEndConfirmation) {
             ConfirmationView(
-                title: "结束比赛",
-                message: "你确定要结束这场比赛吗？结束后数据将无法修改。",
+                title: "End Match",
+                message: "Are you sure you want to end this match? Data cannot be modified after ending.",
                 confirmAction: {
                     showEndConfirmation = false
-                    // 延迟执行，确保sheet先关闭
+                    // Delay execution to ensure sheet closes first
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                         endMatch()
                     }
@@ -226,21 +226,21 @@ struct MatchRecordView: View {
                 }
             )
         }
-        .alert("需要权限", isPresented: $audioManager.showPermissionAlert) {
-            Button("去设置", role: .cancel) {
+        .alert("Permissions Required", isPresented: $audioManager.showPermissionAlert) {
+            Button("Go to Settings", role: .cancel) {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(url)
                 }
             }
-            Button("取消", role: .destructive) {
+            Button("Cancel", role: .destructive) {
                 audioManager.showPermissionAlert = false
             }
         } message: {
-            Text(audioManager.permissionError ?? "请在设置中授予必要的权限")
+            Text(audioManager.permissionError ?? "Please grant necessary permissions in settings")
         }
         .onAppear {
             setupAudioManager()
-            // 触发一次视图刷新，确保toolbar渲染
+            // Trigger a view refresh to ensure toolbar rendering
             _ = match.id
             WatchConnectivityManager.shared.sendStartMatchToWatch(match: match)
         }
@@ -270,7 +270,7 @@ struct MatchRecordView: View {
                 do {
                     try audioManager.startRecording()
                 } catch {
-                    print("录音启动失败: \(error)")
+                    print("Recording failed to start: \(error)")
                 }
             } else {
                 audioManager.checkPermissions()
@@ -279,7 +279,7 @@ struct MatchRecordView: View {
     }
     
     private func handleConfirmedEvent(_ event: MatchEvent) {
-        // 更新比分
+        // Update score
         if event.eventType == .goal {
             if event.isHomeTeam {
                 match.homeScore += 1
@@ -287,49 +287,34 @@ struct MatchRecordView: View {
                 match.awayScore += 1
             }
             
-            // 更新球员统计
+            // Update player stats
             if let stats = match.playerStats.first(where: { $0.player?.id == event.scorer?.id }) {
                 stats.goals += 1
             }
         } else if event.eventType == .save {
-            // 更新球员统计
-            if let stats = match.playerStats.first(where: { $0.player?.id == event.scorer?.id }) {
+            // Update player stats
+            // Ensure event.goalkeeper is used if available and correctly set in EventSelectionView
+            if let stats = match.playerStats.first(where: { $0.player?.id == event.goalkeeper?.id }) { // Changed to event.goalkeeper
                 stats.saves += 1
             }
         }
         
-        updateMatchStats(for: event, in: match)
         modelContext.insert(event)
-        match.events.append(event)
+        // match.events.append(event) // Removed: SwiftData handles inverse relationships automatically
         try? modelContext.save()
-
     }
     
-    
-
-    
     private func endMatch() {
-        // 更新比赛状态
+        // Update match status
         match.status = .finished
         
-        // 发送结束比赛消息到手表端
-        let message: [String: Any] = [
-            "command": "matchEndedFromPhone",
-            "matchId": match.id.uuidString,
-            "homeScore": match.homeScore,
-            "awayScore": match.awayScore
-        ]
-        
-        WCSession.default.sendMessage(message, replyHandler: nil) { error in
-            print("❌ 手表端发送 matchEnded 消息失败: \(error.localizedDescription)")
-        }
+        // Send complete match end message to Watch
+        WatchConnectivityManager.shared.sendFullMatchEndToWatch(match: match)
 
-
-        
-        // 通知 MatchesView 关闭 sheet
+        // Notify MatchesView to close sheet
         coordinator.shouldDismissParticipationSheet = true
 
-        // 保存并返回
+        // Save and dismiss
         try? modelContext.save()
         dismiss()
     }
@@ -349,20 +334,20 @@ struct TimelineEventView: View {
         switch event.eventType {
         case .goal:
             if let assistant = event.assistant {
-                return "\(event.scorer?.name ?? "") 进球！\n助攻：\(assistant.name)"
+                return "\(event.scorer?.name ?? "") Goal!\nAssist: \(assistant.name)"
             } else {
-                return "\(event.scorer?.name ?? "") 进球！"
+                return "\(event.scorer?.name ?? "") Goal!"
             }
         case .assist:
-            return "\(event.scorer?.name ?? "") 助攻"
+            return "\(event.scorer?.name ?? "") Assist"
         case .foul:
-            return "\(event.scorer?.name ?? "") 犯规"
+            return "\(event.scorer?.name ?? "") Foul"
         case .save:
-            return "\(event.scorer?.name ?? "") 扑救"
+            return "\(event.goalkeeper?.name ?? "") Save" // Changed to event.goalkeeper
         case .yellowCard:
-            return "\(event.scorer?.name ?? "") 黄牌"
+            return "\(event.scorer?.name ?? "") Yellow Card"
         case .redCard:
-            return "\(event.scorer?.name ?? "") 红牌"
+            return "\(event.scorer?.name ?? "") Red Card"
         }
     }
     
@@ -385,12 +370,12 @@ struct TimelineEventView: View {
     
     var body: some View {
         HStack(alignment: .top, spacing: 15) {
-            // 时间显示
+            // Time display
             Text(eventTimeString)
                 .font(.custom("DingTalk JinBuTi", size: 14))
                 .foregroundColor(.black)
             
-            // 时间线
+            // Timeline
             VStack(spacing: 0) {
                 Circle()
                     .fill(eventColor)
@@ -404,7 +389,7 @@ struct TimelineEventView: View {
                 }
             }
             
-            // 事件内容
+            // Event content
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: event.eventType == .goal ? "soccerball" : "hand.raised.fill")
@@ -433,9 +418,9 @@ struct TimelineEventView: View {
     let newMatch = Match(
         id: UUID(),
         status: .notStarted,
-        homeTeamName: "红队",
-        awayTeamName: "蓝队"
+        homeTeamName: "Red Team",
+        awayTeamName: "Blue Team"
     )
     return MatchRecordView(match: newMatch)
         .modelContainer(container)
-} 
+}

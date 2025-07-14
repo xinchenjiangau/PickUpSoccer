@@ -16,7 +16,7 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
     private var session: WCSession?
     private var modelContainer: ModelContainer?
 
-    // 让外部注入 ModelContainer
+    // Allows external injection of ModelContainer
     func configure(with container: ModelContainer) {
         self.modelContainer = container
     }
@@ -31,11 +31,8 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
     }
 
     // MARK: - Sending Data to Watch
-    
 
-
-
-
+    /// Sends initial match data to the Watch.
     func sendStartMatchToWatch(match: Match) {
         guard let session = session, session.isPaired, session.isWatchAppInstalled else {
             print("WCSession not available or watch app not installed.")
@@ -59,11 +56,34 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
         session.sendMessage(payload, replyHandler: nil, errorHandler: nil)
     }
     
-    func sendEndMatchToWatch(matchId: UUID) {
-        guard let session = session, session.isReachable else { return }
-        let context: [String: Any] = ["command": "endMatch", "matchId": matchId.uuidString]
-        session.sendMessage(context, replyHandler: nil) { error in
-            print("Error sending end match message: \(error.localizedDescription)")
+    // MARK: - New unified function to send complete match end data to Watch
+    /// Sends comprehensive match end data including scores and all events to the Watch.
+    func sendFullMatchEndToWatch(match: Match) {
+        guard let session = session, session.isReachable else {
+            print("WCSession not reachable for sending full match end data.")
+            return
+        }
+
+        let eventsPayload = match.events.map { event in
+            [
+                "eventType": event.eventType.rawValue,
+                "timestamp": event.timestamp.timeIntervalSince1970,
+                "isHomeTeam": event.isHomeTeam,
+                "playerId": event.scorer?.id.uuidString ?? "", // Scorer or Goalkeeper for saves
+                "assistantId": event.assistant?.id.uuidString ?? ""
+            ]
+        }
+
+        let payload: [String: Any] = [
+            "command": "matchEndedFromPhone",
+            "matchId": match.id.uuidString,
+            "homeScore": match.homeScore,
+            "awayScore": match.awayScore,
+            "events": eventsPayload // Include all events
+        ]
+        
+        session.sendMessage(payload, replyHandler: nil) { error in
+            print("❌ Failed to send full match end message to watch: \(error.localizedDescription)")
         }
     }
 
@@ -83,22 +103,22 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
         session.activate()
     }
 
-    // !! **核心逻辑：接收来自手表的消息** !!
+    // !! **Core Logic: Receiving messages from Watch** !!
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
         guard let command = message["command"] as? String else {
-            print("❌ 未收到 command 字段")
+            print("❌ Command field not received")
             return
         }
 
-        print("📨 手机端收到来自手表的命令: \(command)")
+        print("📨 Phone received command from Watch: \(command)")
 
-        // 使用 detached 分发异步任务，避免主线程阻塞
+        // Dispatch asynchronous task using detached to prevent blocking the main thread
         Task.detached(priority: .userInitiated) {
             let startTime = Date()
 
             await MainActor.run {
                 guard let context = self.modelContainer?.mainContext else {
-                    print("⚠️ 无法获取 ModelContext")
+                    print("⚠️ Could not get ModelContext")
                     return
                 }
 
@@ -110,21 +130,19 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
                 case "updateScore":
                     self.handleScoreUpdate(from: message)
                 case "matchEndedFromPhone":
+                    // This command is sent from phone to watch, so phone won't process it as incoming
                     break
                 default:
-                    print("⚠️ 未知命令: \(command)")
+                    print("⚠️ Unknown command: \(command)")
                 }
 
                 let elapsed = Date().timeIntervalSince(startTime)
                 if elapsed > 1.5 {
-                    print("⏱️ 警告：处理命令 \(command) 用时 \(elapsed) 秒，建议优化")
+                    print("⏱️ Warning: Processing command \(command) took \(elapsed) seconds, consider optimization")
                 }
             }
         }
-        
-
     }
-
 
     // MARK: - Message Handlers
 
@@ -141,17 +159,17 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
         let translatedType = translatedEventType(from: eventTypeStr)
         let newEvent = MatchEvent(eventType: translatedType, timestamp: Date(), isHomeTeam: false)
 
+        // WatchConnectivityManager.swift -> handleNewEvent method
         if translatedType == .save {
-            // 优先处理 goalkeeperId
             if let goalkeeperIdStr = message["goalkeeperId"] as? String,
                let goalkeeperId = UUID(uuidString: goalkeeperIdStr),
                let goalkeeperStats = match.playerStats.first(where: { $0.player?.id == goalkeeperId }) {
-                newEvent.goalkeeper = goalkeeperStats.player
+                newEvent.goalkeeper = goalkeeperStats.player // ✅ Set goalkeeper here
                 goalkeeperStats.saves += 1
                 newEvent.isHomeTeam = goalkeeperStats.isHomeTeam
             }
         } else {
-            // 处理 scorer
+            // Handle scorer
             if let scorerIdStr = message["playerId"] as? String,
                let scorerId = UUID(uuidString: scorerIdStr),
                let scorerStats = match.playerStats.first(where: { $0.player?.id == scorerId }) {
@@ -160,7 +178,7 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
                 scorerStats.goals += 1
             }
 
-            // 助攻
+            // Assist
             if let assistantIdStr = message["assistantId"] as? String,
                let assistantId = UUID(uuidString: assistantIdStr),
                let assistantStats = match.playerStats.first(where: { $0.player?.id == assistantId }) {
@@ -169,34 +187,40 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
             }
         }
 
-        updateMatchStats(for: newEvent, in: match)
+        // Set event ownership
         newEvent.match = match
         context.insert(newEvent)
-        match.events.append(newEvent)
+        // match.events.append(newEvent) // ⚠️ Removed: SwiftData handles inverse relationships automatically
+
+        // ✅ Update score
+        if newEvent.eventType == .goal {
+            if newEvent.isHomeTeam {
+                match.homeScore += 1
+            } else {
+                match.awayScore += 1
+            }
+        }
+
+        // ✅ Player stats (goals, assists, saves) are already updated above
+
         try? context.save()
 
-        print("✅ 当前 match.id: \(match.id.uuidString)")
+        print("✅ Current match.id: \(match.id.uuidString)")
         print("🧩 scorerId: \(newEvent.scorer?.id.uuidString ?? "nil")")
         print("🧩 assistantId: \(newEvent.assistant?.id.uuidString ?? "nil")")
         print("🧩 goalkeeperId: \(newEvent.goalkeeper?.id.uuidString ?? "nil")")
 
         for e in match.events {
-            print("📄 已有事件: \(e.eventType.rawValue), scorerId: \(e.scorer?.id.uuidString ?? "nil")")
+            print("📄 Existing event: \(e.eventType.rawValue), scorerId: \(e.scorer?.id.uuidString ?? "nil")")
         }
 
         for e in match.events {
-            print("📄 事件: \(e.eventType.rawValue), scorerId: \(e.scorer?.id.uuidString ?? "nil")")
+            print("📄 Event: \(e.eventType.rawValue), scorerId: \(e.scorer?.id.uuidString ?? "nil")")
         }
         print("✅ match.events.count = \(match.events.count)")
         print("✅ newEvent.match id = \(newEvent.match?.id.uuidString ?? "nil")")
-
-
-
-
-
     }
 
-    
     private func translatedEventType(from raw: String) -> EventType {
         switch raw {
         case "goal": return .goal
@@ -208,8 +232,6 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
         default: return .goal
         }
     }
-
-
     
     private func handleMatchEnded(from message: [String: Any], context: ModelContext) {
         guard let matchIdStr = message["matchId"] as? String,
@@ -225,7 +247,7 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
             match.awayScore = awayScore
         }
 
-        // ✅ 彻底删除旧事件（从数据库中删除，而不仅仅是从 match.events 中移除）
+        // ✅ Thoroughly delete old events (delete from database, not just remove from match.events)
         let allEvents = try? context.fetch(FetchDescriptor<MatchEvent>())
         if let eventsToDelete = allEvents?.filter({ $0.match?.id == match.id }) {
             for e in eventsToDelete {
@@ -234,22 +256,23 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
         }
         match.events = []
         
-        // 清空 player stats 的所有历史分
+        // Clear all historical scores for player stats
         for stats in match.playerStats {
             stats.goals = 0
             stats.assists = 0
             stats.saves = 0
         }
 
-        // ✅ 重建新事件
+        // ✅ Rebuild new events
         if let rawEvents = message["events"] as? [[String: Any]] {
             for raw in rawEvents {
                 guard
                     let typeStr = raw["eventType"] as? String,
                     let eventType = EventType(rawValue: typeStr),
                     let timestamp = raw["timestamp"] as? Double,
-                    let playerIdStr = raw["playerId"] as? String,
-                    let playerId = UUID(uuidString: playerIdStr)
+                    // Use playerId for both scorer and goalkeeper based on eventType
+                    let primaryPlayerIdStr = raw["playerId"] as? String,
+                    let primaryPlayerId = UUID(uuidString: primaryPlayerIdStr)
                 else { continue }
 
                 let event = MatchEvent(
@@ -259,8 +282,14 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
                 )
                 event.match = match
 
-                if let scorerStats = match.playerStats.first(where: { $0.player?.id == playerId }) {
-                    event.scorer = scorerStats.player
+                if eventType == .save {
+                    if let goalkeeperStats = match.playerStats.first(where: { $0.player?.id == primaryPlayerId }) {
+                        event.goalkeeper = goalkeeperStats.player
+                    }
+                } else {
+                    if let scorerStats = match.playerStats.first(where: { $0.player?.id == primaryPlayerId }) {
+                        event.scorer = scorerStats.player
+                    }
                 }
 
                 if let assistantStr = raw["assistantId"] as? String,
@@ -269,7 +298,7 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
                     event.assistant = assistantStats.player
                 }
                 event.match = match
-                context.insert(event) // SwiftData 自动建立关系
+                context.insert(event) // SwiftData automatically establishes relationships
                 match.events.append(event)
             }
         }
@@ -278,27 +307,21 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
         match.updateMatchStats()
         try? context.save()
 
-        print("✅ 完整结束：事件数量 = \(match.events.count)")
+        print("✅ Full end: Event count = \(match.events.count)")
         objectWillChange.send()
     
-
-
-        print("📦 当前 match.id = \(match.id.uuidString)")
+        print("📦 Current match.id = \(match.id.uuidString)")
         print("📦 match.events.count = \(match.events.count)")
         for e in match.events {
-            print("📝 事件：\(e.eventType.rawValue) 时间：\(e.timestamp)")
+            print("📝 Event: \(e.eventType.rawValue), scorerId: \(e.scorer?.id.uuidString ?? "nil")")
         }
         if let allEvents = try? context.fetch(FetchDescriptor<MatchEvent>()) {
-            print("📦 所有 MatchEvent 数量 = \(allEvents.count)")
+            print("📦 All MatchEvent count = \(allEvents.count)")
             for e in allEvents {
-                print("📄 事件ID: \(e.id.uuidString), match.id = \(e.match?.id.uuidString ?? "nil"), 类型: \(e.eventType.rawValue)")
+                print("📄 Event ID: \(e.id.uuidString), match.id = \(e.match?.id.uuidString ?? "nil"), Type: \(e.eventType.rawValue)")
             }
         }
-
-
     }
-
-
 
     private func handleScoreUpdate(from message: [String: Any]) {
         guard let matchIdStr = message["matchId"] as? String,
@@ -309,18 +332,18 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
         let matchPredicate = #Predicate<Match> { $0.id == matchId }
         guard let match = (try? modelContainer?.mainContext.fetch(FetchDescriptor(predicate: matchPredicate)))?.first else { return }
         
-        // 更新比分
+        // Update score
         match.homeScore = homeScore
         match.awayScore = awayScore
         
-        // 保存并通知 UI 更新
+        // Save and notify UI update
         try? modelContainer?.mainContext.save()
-        print("iOS端收到比分更新: \(homeScore)-\(awayScore)")
+        print("iOS received score update: \(homeScore)-\(awayScore)")
     }
     
     func syncPlayerToWatchIfNeeded(player: Player, match: Match) {
         guard let isHomeTeam = match.playerStats.first(where: { $0.player?.id == player.id })?.isHomeTeam else {
-            print("⚠️ 无法判断球员归属队伍，跳过同步：\(player.name)")
+            print("⚠️ Unable to determine player's team, skipping sync: \(player.name)")
             return
         }
         sendNewPlayerToWatch(player: player, isHomeTeam: isHomeTeam, matchId: match.id)
@@ -329,37 +352,32 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
     func sendNewPlayerToWatch(player: Player, isHomeTeam: Bool, matchId: UUID) {
         let payload: [String: Any] = [
             "command": "newPlayer",
-            "playerId": player.id.uuidString, // ✅ 这里是 SwiftData 的 id
+            "playerId": player.id.uuidString, // ✅ This is SwiftData's ID
             "name": player.name,
             "isHomeTeam": isHomeTeam,
             "matchId": matchId.uuidString
         ]
 
         WCSession.default.sendMessage(payload, replyHandler: nil) { error in
-            print("❌ 同步新球员失败：\(error.localizedDescription)")
+            print("❌ Failed to sync new player: \(error.localizedDescription)")
         }
     }
     
-    // ✅ 新增：接收 transferUserInfo 消息
+    // ✅ New: Receive transferUserInfo message
     nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any] = [:]) {
         Task { @MainActor in
             await handleIncomingBackupEvent(userInfo)
         }
     }
 
-    // ✅ 新增：处理 transferUserInfo 的逻辑
+    // ✅ New: Logic to handle transferUserInfo
     func handleIncomingBackupEvent(_ message: [String: Any]) async {
         guard let command = message["command"] as? String, command == "newEventBackup" else { return }
 
-        print("📦 收到 transferUserInfo 事件备份: \(message)")
+        print("📦 Received transferUserInfo event backup: \(message)")
 
         await MainActor.run {
             self.session(WCSession.default, didReceiveMessage: message)
         }
     }
-
-
-
-
 }
-
