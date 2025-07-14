@@ -29,6 +29,19 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
             session?.activate()
         }
     }
+    /// 根据手表传来的英文枚举名，手动映射到正确的 EventType 枚举成员
+    private func eventType(fromCaseName name: String) -> EventType? {
+        switch name {
+        case "goal": return .goal
+        case "foul": return .foul
+        case "save": return .save
+        case "yellowCard": return .yellowCard
+        case "redCard": return .redCard
+        default:
+            print("⚠️ 未知的事件类型名称: \(name)")
+            return nil
+        }
+    }
 
     // MARK: - Sending Data to Watch
 
@@ -248,6 +261,10 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
         }
     }
     
+    // 请将旧的 handleMatchEnded 函数替换为这个修正后的版本
+
+    // 请将旧的 handleMatchEnded 函数替换为这个最终修正后的版本
+
     private func handleMatchEnded(from message: [String: Any], context: ModelContext) {
         guard let matchIdStr = message["matchId"] as? String,
               let matchId = UUID(uuidString: matchIdStr) else { return }
@@ -262,58 +279,76 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
             match.awayScore = awayScore
         }
 
-        // ✅ Thoroughly delete old events (delete from database, not just remove from match.events)
-        let allEvents = try? context.fetch(FetchDescriptor<MatchEvent>())
-        if let eventsToDelete = allEvents?.filter({ $0.match?.id == match.id }) {
-            for e in eventsToDelete {
-                context.delete(e)
+        let fetchDescriptor = FetchDescriptor<MatchEvent>(predicate: #Predicate { $0.match?.id == matchId })
+        if let eventsToDelete = try? context.fetch(fetchDescriptor) {
+            for event in eventsToDelete {
+                context.delete(event)
             }
         }
-        match.events = []
+        match.events.removeAll()
         
-        // Clear all historical scores for player stats
         for stats in match.playerStats {
             stats.goals = 0
             stats.assists = 0
             stats.saves = 0
         }
 
-        // ✅ Rebuild new events
         if let rawEvents = message["events"] as? [[String: Any]] {
             for raw in rawEvents {
-                guard
-                    let typeStr = raw["eventType"] as? String,
-                    let eventType = EventType(rawValue: typeStr),
-                    let timestamp = raw["timestamp"] as? Double,
-                    // Use playerId for both scorer and goalkeeper based on eventType
-                    let primaryPlayerIdStr = raw["playerId"] as? String,
-                    let primaryPlayerId = UUID(uuidString: primaryPlayerIdStr)
-                else { continue }
+                
+                // MARK: - 最终修复
+                // 1. 获取事件的英文名称字符串
+                let typeName = String(describing: raw["eventType"] ?? "")
+                
+                // 2. 使用新的辅助函数将英文名称映射到枚举成员
+                let finalEventType = eventType(fromCaseName: typeName)
+                
+                // 3. 健壮地解析布尔值
+                let isHomeTeam = (raw["isHomeTeam"] as? NSNumber)?.boolValue ?? (raw["isHomeTeam"] as? Bool ?? false)
+
+                guard let eventType = finalEventType, let timestamp = raw["timestamp"] as? Double else {
+                    print("❌ [WatchKit Final Sync] 跳过格式错误的事件：\(raw)")
+                    continue
+                }
 
                 let event = MatchEvent(
                     eventType: eventType,
                     timestamp: Date(timeIntervalSince1970: timestamp),
-                    isHomeTeam: raw["isHomeTeam"] as? Bool ?? false
+                    isHomeTeam: isHomeTeam
                 )
                 event.match = match
-
-                if eventType == .save {
-                    if let goalkeeperStats = match.playerStats.first(where: { $0.player?.id == primaryPlayerId }) {
-                        event.goalkeeper = goalkeeperStats.player
-                    }
-                } else {
-                    if let scorerStats = match.playerStats.first(where: { $0.player?.id == primaryPlayerId }) {
+                
+                if eventType == .goal {
+                    if let scorerIdStr = raw["playerId"] as? String,
+                       let scorerId = UUID(uuidString: scorerIdStr),
+                       let scorerStats = match.playerStats.first(where: { $0.player?.id == scorerId }) {
                         event.scorer = scorerStats.player
+                        scorerStats.goals += 1
+                    }
+                    if let assistantStr = raw["assistantId"] as? String,
+                       let assistantId = UUID(uuidString: assistantStr),
+                       !assistantStr.isEmpty,
+                       let assistantStats = match.playerStats.first(where: { $0.player?.id == assistantId }) {
+                        event.assistant = assistantStats.player
+                        assistantStats.assists += 1
+                    }
+                } else if eventType == .save {
+                    var goalkeeperIdStr: String?
+                    if let id = raw["goalkeeperId"] as? String {
+                        goalkeeperIdStr = id
+                    } else if let id = raw["playerId"] as? String {
+                        goalkeeperIdStr = id
+                    }
+                    
+                    if let idStr = goalkeeperIdStr,
+                       let goalkeeperId = UUID(uuidString: idStr),
+                       let goalkeeperStats = match.playerStats.first(where: { $0.player?.id == goalkeeperId }) {
+                        event.goalkeeper = goalkeeperStats.player
+                        goalkeeperStats.saves += 1
                     }
                 }
-
-                if let assistantStr = raw["assistantId"] as? String,
-                   let assistantId = UUID(uuidString: assistantStr),
-                   let assistantStats = match.playerStats.first(where: { $0.player?.id == assistantId }) {
-                    event.assistant = assistantStats.player
-                }
-                event.match = match
-                context.insert(event) // SwiftData automatically establishes relationships
+                
+                context.insert(event)
                 match.events.append(event)
             }
         }
@@ -324,18 +359,6 @@ class WatchConnectivityManager: NSObject, WCSessionDelegate, ObservableObject {
 
         print("✅ Full end: Event count = \(match.events.count)")
         objectWillChange.send()
-    
-        print("📦 Current match.id = \(match.id.uuidString)")
-        print("📦 match.events.count = \(match.events.count)")
-        for e in match.events {
-            print("📝 Event: \(e.eventType.rawValue), scorerId: \(e.scorer?.id.uuidString ?? "nil")")
-        }
-        if let allEvents = try? context.fetch(FetchDescriptor<MatchEvent>()) {
-            print("📦 All MatchEvent count = \(allEvents.count)")
-            for e in allEvents {
-                print("📄 Event ID: \(e.id.uuidString), match.id = \(e.match?.id.uuidString ?? "nil"), Type: \(e.eventType.rawValue)")
-            }
-        }
     }
 
     private func handleScoreUpdate(from message: [String: Any]) {
